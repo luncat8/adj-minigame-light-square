@@ -1,0 +1,51 @@
+# adj-light-square-minigame
+
+15*15 cell game map with 1 outer border cells, black bg
+centered square 7*7 made from random glass cells.
+cell types: 
+- pass light
+- diagonal mirror - reflect to 90 deg
+	mirror can be all rgb or some pass (semi transparent) and some reflect, for example G pass, RB reflect this mean split ray in 2.
+	
+in the bottom of the screen laser  white source lit up on the square. possible move laser L-R 
+visible light through all cells
+
+player rotate squares with mouse wheel or drag this cause shift perimeter cells (that formed concentric squares 7x7, 5x5, 3x3, 1) cw ccw. Open question is rotated cells that pass corners: make checkbox in settings.
+
+Color mix as r,g,b
+
+## secret task - lit some outer border cells with specific colors.
+
+task difficulty modifiers:
+low: lit only few targets from big possible amount, accept any color 
+high: lit only and all of specific targets, lit with exactly specified colors, multiple targets
+
+need to test difficulty and range.
+then button generate with slider preferred average difficulty
+Solvability is guaranteed by generate function.
+
+## win
+
+show % of solved task with some hints like some cells not lit, colors wrong 
+
+### checkbox hint:
+
+- highlight cells that age good and partially good with different highlight
+- highlight that was good in some way to user what he discovered without memorizing 
+
+
+### buttons solution show with press or hover button.
+- hint - show target cells
+- solved laser position - move laser and rotate squares to position
+
+
+
+## style
+
+but fancy squares and light
+
+
+## settings
+laser width from thin to 3 cells
+
+
