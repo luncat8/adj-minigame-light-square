@@ -1,5 +1,6 @@
 const assert = require('assert');
 const Board = require('../js/board.js').Board;
+const Generate = require('../js/generate.js').Generate;
 const Optics = require('../js/optics.js').Optics;
 
 function mulberry32(a) {
@@ -123,6 +124,113 @@ assert.strictEqual(oneCell.diag, oneDiag ^ 1, '1x1 flips');
 Board.rotateRing(one, 3, -1);
 assert.strictEqual(oneCell.diag, oneDiag, '1x1 restores');
 
+function statusBoard(groups) {
+	const b = blank('quarter', true);
+	b.groups = groups;
+	Board.allocStatus(b);
+	return b;
+}
+
+const sg = statusBoard([{ cells: [{ idx: 0, mask: 1 }, { idx: 1, mask: 2 }, { idx: 2, mask: 4 }, { idx: 3, mask: 1 }], need: 4, exact: true }]);
+sg.grid[0].light = 1;
+sg.grid[1].light = 3;
+sg.grid[2].light = 1;
+sg.grid[3].light = 0;
+Board.refreshStatus(sg);
+assert.deepStrictEqual(Array.from(sg.status.slice(0, 4)), [2, 1, 3, 0], 'exact status');
+assert.strictEqual(sg.groupGood[0], 1, 'exact good');
+assert.strictEqual(sg.wrong, 1, 'exact wrong');
+assert.ok(Math.abs(sg.progress - 0.375) < 1e-9, 'exact progress');
+assert.strictEqual(sg.remaining, 3, 'exact remaining');
+assert.strictEqual(sg.found[0], 1, 'found good');
+assert.strictEqual(sg.found[1], 0, 'found partial');
+
+const ag = statusBoard([{ cells: [{ idx: 4, mask: 0 }, { idx: 5, mask: 0 }], need: 1, exact: false }]);
+ag.grid[4].light = 7;
+ag.grid[5].light = 0;
+Board.refreshStatus(ag);
+assert.strictEqual(ag.status[4], 2, 'any good');
+assert.strictEqual(ag.status[5], 0, 'any unlit');
+assert.strictEqual(ag.groupGood[0], 1, 'any count');
+assert.strictEqual(ag.remaining, 0, 'any remaining');
+assert.strictEqual(ag.found[4], 1, 'any found');
+
+const mg = statusBoard([
+	{ cells: [{ idx: 0, mask: 1 }, { idx: 1, mask: 1 }], need: 2, exact: true },
+	{ cells: [{ idx: 4, mask: 0 }, { idx: 5, mask: 0 }], need: 1, exact: false }
+]);
+mg.grid[0].light = 1;
+mg.grid[1].light = 2;
+mg.grid[4].light = 4;
+Board.refreshStatus(mg);
+assert.deepStrictEqual(Array.from(mg.groupGood), [1, 1], 'mixed group good');
+assert.strictEqual(mg.wrong, 1, 'mixed wrong');
+assert.ok(Math.abs(mg.progress - 0.75) < 1e-9, 'mixed progress');
+assert.strictEqual(mg.remaining, 1, 'mixed remaining');
+
+const pg = statusBoard([{ cells: [{ idx: 0, mask: 1 }], need: 1, exact: true }]);
+pg.preview = true;
+pg.grid[0].light = 1;
+Board.refreshStatus(pg);
+assert.strictEqual(pg.found[0], 0, 'preview no found');
+pg.preview = false;
+Board.refreshStatus(pg);
+assert.strictEqual(pg.found[0], 1, 'found after preview');
+
+const fg = statusBoard([{ cells: [{ idx: 0, mask: 1 }], need: 1, exact: true }]);
+fg.grid[0].light = 1;
+Board.refreshStatus(fg);
+assert.strictEqual(fg.found[0], 1, 'found set');
+Board.rotateRing(fg, 0, 1);
+fg.grid[0].light = 0;
+Board.refreshStatus(fg);
+assert.strictEqual(fg.found[0], 1, 'found survives rotation');
+
+const ng = Generate.make(mulberry32(1), { mode: 'quarter', flipAtCorners: true, difficulty: 0.5 }, Optics.trace);
+let foundCount = 0;
+for (let i = 0; i < ng.found.length; i++) foundCount += ng.found[i];
+assert.strictEqual(foundCount, 0, 'found clears on new puzzle');
+
+function testPreview(mode, seed) {
+	const label = 'preview ' + mode + ' ' + seed;
+	const b = Generate.make(mulberry32(seed), { mode: mode, flipAtCorners: true, difficulty: 0.5 }, Optics.trace);
+	const savedTurns = b.rings.map(r => r.turns);
+	const savedLaser = b.laserCol;
+	const savedWidth = b.laserWidth;
+	const refs = b.grid.slice();
+	const diags = b.grid.map(c => c.diag);
+	const target = b.groups[0].cells[0].idx;
+	b.found[target] = 1;
+	const found = b.found.slice();
+	b.preview = true;
+	Board.applyTurns(b, b.solutionTurns);
+	b.laserCol = b.solutionLaser;
+	b.laserWidth = b.solutionWidth;
+	Board.updateLaser(b);
+	Optics.trace(b);
+	Board.refreshStatus(b);
+	assert.ok(Board.isSolved(b), label + ' witness');
+	assert.deepStrictEqual(Array.from(b.found), Array.from(found), label + ' preview found');
+	Board.applyTurns(b, savedTurns);
+	b.laserCol = savedLaser;
+	b.laserWidth = savedWidth;
+	Board.updateLaser(b);
+	b.preview = false;
+	assert.deepStrictEqual(Array.from(b.found), Array.from(found), label + ' restore found');
+	assert.strictEqual(b.laserCol, savedLaser, label + ' restore laser');
+	assert.strictEqual(b.laserWidth, savedWidth, label + ' restore width');
+	assert.deepStrictEqual(b.rings.map(r => r.turns), savedTurns, label + ' restore turns');
+	for (let i = 0; i < b.grid.length; i++) {
+		assert.strictEqual(b.grid[i], refs[i], label + ' restore ref ' + i);
+		assert.strictEqual(b.grid[i].diag, diags[i], label + ' restore diag ' + i);
+	}
+}
+
+for (let seed = 1; seed <= 10; seed++) {
+	testPreview('quarter', seed);
+	testPreview('shift', seed);
+}
+
 const norm = blank('shift', true);
 const normTurns = [25, -1, 17, 5];
 Board.normalizeTurns(norm, normTurns);
@@ -179,7 +287,7 @@ function checkGroups(g, label) {
 function testGenerated(mode, flipAtCorners, difficulty, seeds) {
 	for (let seed = 1; seed <= seeds; seed++) {
 		const label = mode + ' d' + difficulty + ' seed ' + seed;
-		const g = Board.generate(mulberry32(seed), { mode: mode, flipAtCorners: flipAtCorners, difficulty: difficulty }, Optics.trace);
+		const g = Generate.make(mulberry32(seed), { mode: mode, flipAtCorners: flipAtCorners, difficulty: difficulty }, Optics.trace);
 		assert.ok(g, label + ' board');
 		assert.strictEqual(g.mode, mode, label + ' mode');
 		assert.strictEqual(g.flipAtCorners, flipAtCorners, label + ' corners');
@@ -188,7 +296,7 @@ function testGenerated(mode, flipAtCorners, difficulty, seeds) {
 		assert.ok(g.difficultyScore >= 0 && g.difficultyScore <= 1, label + ' score');
 		Optics.trace(g);
 		assert.strictEqual(Board.isSolved(g), false, label + ' start solved');
-		assert.strictEqual(Board.laserSolves(g, Optics.trace), false, label + ' laser solves');
+		assert.strictEqual(Generate.laserSolves(g, Optics.trace), false, label + ' laser solves');
 		Optics.trace(g);
 		assert.strictEqual(Board.isSolved(g), false, label + ' laser restore');
 		const startLight = new Uint8Array(225);

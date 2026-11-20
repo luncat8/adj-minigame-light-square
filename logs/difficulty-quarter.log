@@ -1,0 +1,5 @@
+mode=quarter difficulty=0.00 sample=10 score_avg=0.3550 score_p10=0.3500 score_p90=0.3500 par_avg=1.00 par_p90=1.00 par_cap=0 gen_ms_avg=0.700 reject_avg=4.40 fallback_avg=0.000
+mode=quarter difficulty=0.25 sample=10 score_avg=0.3400 score_p10=0.2500 score_p90=0.4000 par_avg=1.40 par_p90=2.00 par_cap=0 gen_ms_avg=0.100 reject_avg=0.60 fallback_avg=0.000
+mode=quarter difficulty=0.50 sample=10 score_avg=0.6850 score_p10=0.5000 score_p90=0.8000 par_avg=2.40 par_p90=4.00 par_cap=0 gen_ms_avg=0.100 reject_avg=0.90 fallback_avg=0.000
+mode=quarter difficulty=0.75 sample=10 score_avg=0.7750 score_p10=0.7000 score_p90=0.8000 par_avg=2.70 par_p90=4.00 par_cap=0 gen_ms_avg=0.000 reject_avg=0.40 fallback_avg=0.000
+mode=quarter difficulty=1.00 sample=10 score_avg=0.8550 score_p10=0.8000 score_p90=0.9000 par_avg=3.40 par_p90=5.00 par_cap=0 gen_ms_avg=0.000 reject_avg=0.00 fallback_avg=0.000

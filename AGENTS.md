@@ -58,9 +58,10 @@ getObj().data().action()
 - relevance is decided from head -12. never read a full file just to learn what it is.
 
 - keep this map updated when ownership changes:
-	js/main.js — owns boot/wiring/frame loop. edit for load order, boot, wiring.
-	js/board.js — owns grid, rings, generation. edit for board/ring/target rules.
-	js/optics.js — owns laser tracing/splitting. edit for optics rules.
+js/main.js — owns boot/wiring/frame loop. edit for load order, boot, wiring.
+js/board.js — owns grid, rings, cell rules, status model. edit for board/ring rules, group scoring, hints.
+js/generate.js — owns puzzle generation, target groups, difficulty. edit for group sampling, tiers, retries.
+js/optics.js — owns laser tracing/splitting. edit for optics rules.
 	js/render.js — owns canvas drawing. edit for look, colors, layout.
 	js/input.js — owns pointer/wheel/keys. edit for controls.
 js/ui.js — owns settings panel controls. edit for panel layout, control wiring.
@@ -133,7 +134,7 @@ js/ui.js — owns settings panel controls. edit for panel layout, control wiring
 
 ## current workstream
 
-plan 0.1.1: node --check + node experiments/engine_smoke.js + node experiments/dom_smoke.js after edits. browser manual pass pending (no local browser).
+plan 0.4.0: node --check + node experiments/engine_smoke.js + node experiments/dom_smoke.js after edits. browser manual pass pending (no local browser).
 
 ## housekeeping
 

@@ -53,7 +53,7 @@ Renderer.resize = function(w, h) {
 	Renderer.bg = g;
 };
 
-Renderer.draw = function(b, status, segments, segCount, solved) {
+Renderer.draw = function(b, status, segments, segCount, solved, hints, preview) {
 	const ctx = Renderer.ctx;
 	const cell = Renderer.cell;
 	const ox = Renderer.ox;
@@ -65,9 +65,9 @@ Renderer.draw = function(b, status, segments, segCount, solved) {
 	Renderer.drawGrid(ctx, ox, oy, cell);
 	Renderer.drawCells(ctx, b, ox, oy, cell);
 	Renderer.drawBeams(ctx, segments, segCount, ox, oy, cell);
-	Renderer.drawTargets(ctx, b, ox, oy, cell);
+	Renderer.drawTargets(ctx, b, ox, oy, cell, hints);
 	Renderer.drawLaser(ctx, b, ox, oy, cell);
-	Renderer.drawStatus(ctx, status, solved);
+	Renderer.drawStatus(ctx, status, solved, preview);
 	ctx.globalAlpha = 1;
 	ctx.globalCompositeOperation = 'source-over';
 };
@@ -195,10 +195,15 @@ Renderer.drawBeams = function(ctx, segments, segCount, ox, oy, cell) {
 	ctx.globalCompositeOperation = 'source-over';
 };
 
-Renderer.drawTargets = function(ctx, b, ox, oy, cell) {
+Renderer.drawTargets = function(ctx, b, ox, oy, cell, hints) {
+	const showTargets = !hints || hints.targets !== false;
+	if (!showTargets) return;
+	const showGood = !hints || hints.good !== false;
+	const showFound = !hints || hints.found !== false;
 	const colors = Renderer.colors;
 	const labels = Renderer.groupLabels;
 	const r = Math.max(2.5, cell * 0.11);
+	const dot = Math.max(1.5, cell * 0.06);
 	ctx.globalCompositeOperation = 'source-over';
 	ctx.textAlign = 'left';
 	ctx.textBaseline = 'top';
@@ -213,32 +218,43 @@ Renderer.drawTargets = function(ctx, b, ox, oy, cell) {
 			const row = Math.floor(t.idx / b.n);
 			const cx = ox + (col + 0.5) * cell;
 			const cy = oy + (row + 0.5) * cell;
-			const lit = group.exact ? b.grid[t.idx].light === t.mask : b.grid[t.idx].light > 0;
+			const status = b.status ? b.status[t.idx] : 0;
 			const fill = group.exact ? colors[t.mask] : color;
-			ctx.globalAlpha = lit ? 1 : 0.85;
+			ctx.globalAlpha = showGood && status === 2 ? 1 : 0.85;
 			ctx.strokeStyle = fill;
-			ctx.lineWidth = lit ? 2.5 : 1.5;
+			ctx.lineWidth = showGood && status === 2 ? 2.5 : 1.5;
+			ctx.setLineDash(showGood && (status === 1 || status === 3) ? [3, 2] : []);
+			if (showGood && status === 1) ctx.strokeStyle = '#ffd45e';
+			if (showGood && status === 3) ctx.strokeStyle = '#ff5b5b';
 			ctx.beginPath();
 			ctx.moveTo(cx, cy - r);
 			ctx.lineTo(cx + r, cy);
 			ctx.lineTo(cx, cy + r);
 			ctx.lineTo(cx - r, cy);
 			ctx.closePath();
-			if (lit) {
+			if (showGood && status === 2) {
 				ctx.fillStyle = fill;
 				ctx.fill();
 			}
 			ctx.stroke();
-			if (lit) {
-				ctx.globalAlpha = 0.35;
-				ctx.strokeStyle = '#ffffff';
-				ctx.lineWidth = 1;
+			ctx.setLineDash([]);
+			if (showGood && status === 2) {
+				ctx.globalAlpha = 1;
+				ctx.strokeStyle = '#04110a';
+				ctx.lineWidth = Math.max(1.5, cell * 0.045);
 				ctx.beginPath();
-				ctx.moveTo(cx, cy - r * 1.6);
-				ctx.lineTo(cx + r * 1.6, cy);
-				ctx.lineTo(cx, cy + r * 1.6);
-				ctx.lineTo(cx - r * 1.6, cy);
-				ctx.closePath();
+				ctx.moveTo(cx - r * 0.45, cy + r * 0.05);
+				ctx.lineTo(cx - r * 0.08, cy + r * 0.42);
+				ctx.lineTo(cx + r * 0.52, cy - r * 0.42);
+				ctx.stroke();
+			}
+			if (showGood && status === 3) {
+				ctx.globalAlpha = 0.9;
+				ctx.strokeStyle = '#ff5b5b';
+				ctx.lineWidth = Math.max(1.2, cell * 0.035);
+				ctx.beginPath();
+				ctx.moveTo(cx - r * 0.6, cy - r * 0.6);
+				ctx.lineTo(cx + r * 0.6, cy + r * 0.6);
 				ctx.stroke();
 			}
 			if (label) {
@@ -246,9 +262,19 @@ Renderer.drawTargets = function(ctx, b, ox, oy, cell) {
 				ctx.fillStyle = fill;
 				ctx.fillText(label, ox + col * cell + cell * 0.08, oy + row * cell + cell * 0.06);
 			}
+			if (showFound && b.found && b.found[t.idx]) {
+				const dx = ox + (col + 1) * cell - cell * 0.16;
+				const dy = oy + row * cell + cell * 0.16;
+				ctx.globalAlpha = 1;
+				ctx.fillStyle = showGood && status === 2 ? '#bff4ff' : 'rgba(120,220,255,0.45)';
+				ctx.beginPath();
+				ctx.arc(dx, dy, dot, 0, Math.PI * 2);
+				ctx.fill();
+			}
 		}
 	}
 	ctx.globalAlpha = 1;
+	ctx.setLineDash([]);
 };
 
 Renderer.drawLaser = function(ctx, b, ox, oy, cell) {
@@ -279,13 +305,17 @@ Renderer.drawLaser = function(ctx, b, ox, oy, cell) {
 	ctx.globalCompositeOperation = 'source-over';
 };
 
-Renderer.drawStatus = function(ctx, status, solved) {
+Renderer.drawStatus = function(ctx, status, solved, preview) {
 	ctx.globalCompositeOperation = 'source-over';
 	ctx.globalAlpha = 1;
+	if (preview) {
+		ctx.fillStyle = 'rgba(255,233,77,0.12)';
+		ctx.fillRect(8, 6, Math.min(Renderer.w - 16, 360), 24);
+	}
 	ctx.font = '13px monospace';
 	ctx.textAlign = 'left';
 	ctx.textBaseline = 'top';
-	ctx.fillStyle = solved ? '#7dffb0' : 'rgba(210,225,255,0.75)';
+	ctx.fillStyle = preview ? '#ffe94d' : solved ? '#7dffb0' : 'rgba(210,225,255,0.75)';
 	ctx.fillText(status, 16, 14);
 	ctx.fillStyle = 'rgba(160,190,255,0.35)';
 	ctx.fillText('wheel/drag rotate   A/D laser   N new', 16, 32);

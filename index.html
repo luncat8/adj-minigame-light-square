@@ -52,9 +52,15 @@ canvas { display: block; width: 100vw; height: 100vh; touch-action: none; }
 	<span class="label">Difficulty</span>
 	<input id="difficulty" type="range" min="0" max="100" value="50">
 	<span id="difficultyLabel">Medium</span>
+	<label class="check"><input id="hintGood" type="checkbox" checked> Good / partial</label>
+	<label class="check"><input id="hintFound" type="checkbox" checked> Discovered</label>
+	<label class="check"><input id="hintTargets" type="checkbox" checked> Targets</label>
+	<button id="solutionPreview" type="button">Hold: solution</button>
+	<label class="check"><input id="hoverPreview" type="checkbox"> Hover preview</label>
 	<button id="newPuzzle" type="button">New puzzle</button>
 </div>
 <script src="js/board.js"></script>
+<script src="js/generate.js"></script>
 <script src="js/optics.js"></script>
 <script src="js/render.js"></script>
 <script src="js/input.js"></script>

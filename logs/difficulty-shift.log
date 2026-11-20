@@ -1,0 +1,5 @@
+mode=shift difficulty=0.00 sample=10 score_avg=0.3121 score_p10=0.3083 score_p90=0.3125 par_avg=1.00 par_p90=1.00 par_cap=0 gen_ms_avg=1.300 reject_avg=4.60 fallback_avg=0.000
+mode=shift difficulty=0.25 sample=10 score_avg=0.2750 score_p10=0.2083 score_p90=0.3208 par_avg=1.10 par_p90=1.00 par_cap=0 gen_ms_avg=0.200 reject_avg=0.90 fallback_avg=0.000
+mode=shift difficulty=0.50 sample=10 score_avg=0.5496 score_p10=0.4333 score_p90=0.6417 par_avg=2.50 par_p90=4.00 par_cap=0 gen_ms_avg=0.400 reject_avg=0.70 fallback_avg=0.000
+mode=shift difficulty=0.75 sample=10 score_avg=0.6654 score_p10=0.6042 score_p90=0.6958 par_avg=3.00 par_p90=4.00 par_cap=0 gen_ms_avg=0.000 reject_avg=0.10 fallback_avg=0.000
+mode=shift difficulty=1.00 sample=10 score_avg=0.8083 score_p10=0.7667 score_p90=0.8500 par_avg=9.10 par_p90=15.00 par_cap=0 gen_ms_avg=0.500 reject_avg=0.10 fallback_avg=0.000

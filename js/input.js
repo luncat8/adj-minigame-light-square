@@ -61,6 +61,7 @@ Input.setCursor = function(cursor) {
 };
 
 Input.onDown = function(e) {
+	if (Input.handlers.canInteract && !Input.handlers.canInteract()) return;
 	if (e.pointerType === 'mouse' && e.button !== 0) return;
 	const p = Input.pointer(e);
 	const ring = Input.ringAt(p.x, p.y);
@@ -79,6 +80,7 @@ Input.onDown = function(e) {
 };
 
 Input.onMove = function(e) {
+	if (Input.handlers.canInteract && !Input.handlers.canInteract()) return;
 	const p = Input.pointer(e);
 	if (Input.dragging) {
 		const a = Input.angle(p.x, p.y);
@@ -109,6 +111,7 @@ Input.onUp = function(e) {
 };
 
 Input.onWheel = function(e) {
+	if (Input.handlers.canInteract && !Input.handlers.canInteract()) return;
 	e.preventDefault();
 	const p = Input.pointer(e);
 	const ring = Input.ringAt(p.x, p.y);
@@ -121,6 +124,12 @@ Input.onWheel = function(e) {
 Input.onKey = function(e) {
 	if (e.metaKey || e.ctrlKey || e.altKey) return;
 	const code = e.code;
+	if (code === 'KeyN' && !e.repeat) {
+		e.preventDefault();
+		Input.handlers.newGame();
+		return;
+	}
+	if (Input.handlers.canInteract && !Input.handlers.canInteract()) return;
 	if (code === 'ArrowLeft' || code === 'KeyA') {
 		e.preventDefault();
 		Input.handlers.moveLaser(-1);
@@ -130,9 +139,5 @@ Input.onKey = function(e) {
 		e.preventDefault();
 		Input.handlers.moveLaser(1);
 		return;
-	}
-	if (code === 'KeyN' && !e.repeat) {
-		e.preventDefault();
-		Input.handlers.newGame();
 	}
 };
