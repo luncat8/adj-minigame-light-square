@@ -61,9 +61,12 @@ getObj().data().action()
 	index.html — owns canvas root and script load order. edit for load order.
 	board.js — owns geometry, ring strides, player moves, emitter. edit for stride table, corner rule, center flip, emitter range.
 	trace.js — owns light transport trace and buffers. edit for propagation rules, mirror splits.
+	contract.js — owns secret contracts, scoring and discovery history. edit for quotas, colors and feedback.
+	hints.js — owns hint checkbox state and renderer-facing overlay selection. edit for visibility and preview suppression.
 	experiments/check.js — owns fixture assertion counters. edit for assertion helpers.
 	experiments/move_fixtures.js — owns 0.1 move invariant fixtures. edit for stride, corner, center, emitter cases.
 	experiments/trace_fixtures.js — owns 0.2 transport fixtures. edit for propagation cases.
+	experiments/contract_fixtures.js — owns 0.3 scoring, discovery and hint fixtures. edit for contract cases.
 - new code goes to its owner, never appended "because the file is already there". no owner exists -> new file + header + map entry.
 - file > ~500 lines = defect. split by feature within the same plan.
 - moves are pure moves: contiguous ranges, snap to enclosing declarations, no behavior change.
@@ -135,8 +138,9 @@ getObj().data().action()
 
 [rewritten each phase, never accumulated. only constraints that matter right now. delete lines that stopped mattering.]
 
-plan-order implementation: 0.1 and 0.2 rule layer done, experiments/ fixtures are L1 for board.js and trace.js.
-index.html or load-order edits -> L2 = both fixture scripts. next: 0.3 win predicate.
+plan-order implementation: 0.1–0.3 rule layers done, experiments/ fixtures are L1 for their owners.
+index.html or load-order edits -> L2 = all three fixture scripts. next: 0.4 generation.
+0.5 integrates contract progress and renders hint overlays; the current canvas has no play surface.
 
 ## housekeeping
 
