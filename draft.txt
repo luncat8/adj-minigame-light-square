@@ -11,14 +11,21 @@ in the bottom of the screen laser  white source lit up on the square. possible m
 visible light through all cells
 
 player rotate squares with mouse wheel or drag this cause shift perimeter cells (that formed concentric squares 7x7, 5x5, 3x3, 1) cw ccw. Open question is rotated cells that pass corners: make checkbox in settings.
+1×1 ring also rotates.
+
+game modes:
+- squares rotate by 90 deg (4 shift to rotate any to 360) | shift cells one by one (ii.e. 8 shifts to rotate 3x3 to 360 deg)
 
 Color mix as r,g,b
+
 
 ## secret task - lit some outer border cells with specific colors.
 
 task difficulty modifiers:
-low: lit only few targets from big possible amount, accept any color 
+low: lit only few targets from big possible amount, accept any color .
 high: lit only and all of specific targets, lit with exactly specified colors, multiple targets
+
+think logically what make task more easy or more hard.
 
 need to test difficulty and range.
 then button generate with slider preferred average difficulty
@@ -28,14 +35,14 @@ Solvability is guaranteed by generate function.
 
 show % of solved task with some hints like some cells not lit, colors wrong 
 
-### checkbox hint:
+### checkboxes hint:
 
 - highlight cells that age good and partially good with different highlight
 - highlight that was good in some way to user what he discovered without memorizing 
+- show target cells
 
+### buttons solution show with press or hover button. hold to preview, release to restore.
 
-### buttons solution show with press or hover button.
-- hint - show target cells
 - solved laser position - move laser and rotate squares to position
 
 
@@ -46,6 +53,9 @@ but fancy squares and light
 
 
 ## settings
-laser width from thin to 3 cells
+
+### Deferred, low priority:
+
+laser width from thin (visually) to 3 cells (light in all 3).
 
 
