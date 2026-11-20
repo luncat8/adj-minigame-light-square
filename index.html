@@ -3,13 +3,64 @@
 <head>
 <meta charset="utf-8">
 <meta name="viewport" content="width=device-width, initial-scale=1">
-<title></title>
+<title>adj light square</title>
+<link rel="stylesheet" href="style.css">
 </head>
 <body>
-<canvas id="canv"></canvas>
+<div id="stage">
+	<canvas id="canv"></canvas>
+	<div id="panel">
+		<div class="group">
+			<label for="difficulty">Difficulty <span id="difficulty-val">50</span></label>
+			<input type="range" id="difficulty" min="0" max="100" value="50">
+		</div>
+		<div class="group">
+			<label for="mode">Move</label>
+			<select id="mode">
+				<option value="single">single step</option>
+				<option value="quarter">quarter turn</option>
+			</select>
+		</div>
+		<div class="group checks">
+			<label><input type="checkbox" id="corners"> corner turn</label>
+			<label><input type="checkbox" id="exact"> exact colors</label>
+		</div>
+		<div class="row">
+			<button id="generate" type="button">Generate</button>
+			<button id="restart" type="button">Restart</button>
+			<button id="preview" type="button">Preview solution</button>
+		</div>
+		<div class="group checks">
+			<label><input type="checkbox" id="hint-match"> current matches</label>
+			<label><input type="checkbox" id="hint-remember"> remember discoveries</label>
+			<label><input type="checkbox" id="hint-targets"> show targets</label>
+		</div>
+		<div class="row">
+			<button id="ring-ccw" type="button">CCW</button>
+			<button id="ring-cw" type="button">CW</button>
+			<button id="emitter-left" type="button">&#9664;</button>
+			<button id="emitter-right" type="button">&#9654;</button>
+		</div>
+		<div class="status">
+			<div id="rules"></div>
+			<div id="status"></div>
+		</div>
+		<div class="help">
+			<b>How to play</b><br>
+			Scroll or drag a ring to turn it. CW / CCW turn the selected ring.
+			&#9664 &#9654 slide the laser. Hold <b>Preview solution</b> to see a
+			winning pose. Restart returns to the start.
+		</div>
+	</div>
+</div>
 <script src="src/movement.js"></script>
 <script src="src/trace.js"></script>
 <script src="src/contract.js"></script>
 <script src="src/generation.js"></script>
+<script src="src/render.js"></script>
+<script src="src/items.js"></script>
+<script src="src/controls.js"></script>
+<script src="src/ui.js"></script>
+<script src="src/composer.js"></script>
 </body>
 </html>

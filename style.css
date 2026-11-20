@@ -1,0 +1,85 @@
+* { box-sizing: border-box; }
+
+html, body {
+	margin: 0;
+	height: 100%;
+	background: #05060a;
+	color: #d7dbe6;
+	font: 14px/1.4 ui-sans-serif, system-ui, -apple-system, sans-serif;
+}
+
+#stage {
+	display: flex;
+	gap: 18px;
+	align-items: flex-start;
+	justify-content: center;
+	min-height: 100%;
+	padding: 18px;
+}
+
+#canv {
+	display: block;
+	background: #000;
+	border-radius: 8px;
+	touch-action: none;
+}
+
+#panel {
+	width: 268px;
+	display: flex;
+	flex-direction: column;
+	gap: 12px;
+}
+
+.group {
+	display: flex;
+	flex-direction: column;
+	gap: 6px;
+}
+
+.group.checks {
+	flex-direction: row;
+	flex-wrap: wrap;
+	gap: 8px 14px;
+}
+
+label {
+	font-size: 12px;
+	color: #9aa1b2;
+}
+
+input[type=range] { width: 100%; accent-color: #6ea8ff; }
+
+select, button {
+	font: inherit;
+	color: inherit;
+	background: #161a24;
+	border: 1px solid #2a3040;
+	border-radius: 6px;
+	padding: 6px 10px;
+}
+
+button { cursor: pointer; }
+button:hover { border-color: #4a5470; }
+
+.row {
+	display: flex;
+	gap: 8px;
+	flex-wrap: wrap;
+}
+
+.status {
+	display: flex;
+	flex-direction: column;
+	gap: 4px;
+	font-size: 13px;
+}
+
+#rules { color: #8b93a7; }
+#status { color: #e8ecf5; font-variant-numeric: tabular-nums; }
+
+.help {
+	font-size: 11px;
+	color: #6f7688;
+	line-height: 1.55;
+}
