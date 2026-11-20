@@ -131,11 +131,6 @@ Input.onKey = function(e) {
 		Input.handlers.moveLaser(1);
 		return;
 	}
-	if (code === 'Digit1' || code === 'Digit2' || code === 'Digit3') {
-		e.preventDefault();
-		Input.handlers.setWidth(code.charCodeAt(5) - 48);
-		return;
-	}
 	if (code === 'KeyN' && !e.repeat) {
 		e.preventDefault();
 		Input.handlers.newGame();

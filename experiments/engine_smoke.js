@@ -159,45 +159,65 @@ assert.strictEqual(sb.grid[10 * 15 + 7].light, 7);
 assert.strictEqual(sb.grid[10 * 15 + 8].light, 1);
 assert.strictEqual(sb.grid[9 * 15 + 7].light, 6);
 
-function testGenerated(mode, flipAtCorners, seeds) {
-	for (let seed = 1; seed <= seeds; seed++) {
-		const g = Board.generate(mulberry32(seed), { mode: mode, flipAtCorners: flipAtCorners, targetCount: 4 }, Optics.trace);
-		assert.ok(g, 'seed ' + seed + ' board');
-		assert.strictEqual(g.mode, mode, 'seed ' + seed + ' mode');
-		assert.strictEqual(g.flipAtCorners, flipAtCorners, 'seed ' + seed + ' corners');
-		assert.ok(g.targets.length >= 2, 'seed ' + seed + ' targets');
-		for (const t of g.targets) {
-			assert.ok(Board.isBorder(Math.floor(t.idx / 15), t.idx % 15), 'seed ' + seed + ' border');
-			assert.ok(t.mask >= 1 && t.mask <= 7, 'seed ' + seed + ' mask');
+function checkGroups(g, label) {
+	assert.ok(g.groups.length >= 1 && g.groups.length <= 3, label + ' group count');
+	const used = new Set();
+	for (let gi = 0; gi < g.groups.length; gi++) {
+		const group = g.groups[gi];
+		assert.ok(group.cells.length >= 1, label + ' group cells');
+		assert.ok(group.need >= 1 && group.need <= group.cells.length, label + ' group need');
+		for (const cell of group.cells) {
+			assert.ok(Board.isBorder(Math.floor(cell.idx / 15), cell.idx % 15), label + ' border');
+			assert.ok(!used.has(cell.idx), label + ' disjoint');
+			used.add(cell.idx);
+			if (group.exact) assert.ok(cell.mask >= 1 && cell.mask <= 7, label + ' exact mask');
+			else assert.strictEqual(cell.mask, 0, label + ' any mask');
 		}
-		const center = g.grid[Board.center * g.n + Board.center];
-		assert.strictEqual(center.type, Board.MIRROR, 'seed ' + seed + ' center');
-		assert.ok(center.mask >= 1 && center.mask <= 7, 'seed ' + seed + ' center mask');
+	}
+}
+
+function testGenerated(mode, flipAtCorners, difficulty, seeds) {
+	for (let seed = 1; seed <= seeds; seed++) {
+		const label = mode + ' d' + difficulty + ' seed ' + seed;
+		const g = Board.generate(mulberry32(seed), { mode: mode, flipAtCorners: flipAtCorners, difficulty: difficulty }, Optics.trace);
+		assert.ok(g, label + ' board');
+		assert.strictEqual(g.mode, mode, label + ' mode');
+		assert.strictEqual(g.flipAtCorners, flipAtCorners, label + ' corners');
+		assert.strictEqual(g.difficulty, difficulty, label + ' difficulty');
+		checkGroups(g, label);
+		assert.ok(g.difficultyScore >= 0 && g.difficultyScore <= 1, label + ' score');
 		Optics.trace(g);
-		assert.ok(Board.countSolved(g) < g.targets.length, 'seed ' + seed + ' start solved');
-		assert.strictEqual(Board.laserSolves(g, Optics.trace), false, 'seed ' + seed + ' laser solves');
+		assert.strictEqual(Board.isSolved(g), false, label + ' start solved');
+		assert.strictEqual(Board.laserSolves(g, Optics.trace), false, label + ' laser solves');
 		Optics.trace(g);
-		assert.ok(Board.countSolved(g) < g.targets.length, 'seed ' + seed + ' laser restore');
+		assert.strictEqual(Board.isSolved(g), false, label + ' laser restore');
+		const startLight = new Uint8Array(225);
+		for (let i = 0; i < 225; i++) startLight[i] = g.grid[i].light;
+		for (let gi = 0; gi < g.groups.length; gi++) {
+			const group = g.groups[gi];
+			assert.ok(Board.groupGoodLight(group, startLight) < group.need, label + ' group ' + gi + ' pre-satisfied');
+		}
 		const refs = g.grid.slice();
 		const diags = g.grid.map(c => c.diag);
 		Board.applyTurns(g, g.solutionTurns);
 		g.laserCol = g.solutionLaser;
 		Board.updateLaser(g);
 		Optics.trace(g);
-		assert.ok(Board.isSolved(g), 'seed ' + seed + ' witness');
+		assert.ok(Board.isSolved(g), label + ' witness');
 		Board.applyTurns(g, g.startTurns);
 		g.laserCol = g.solutionLaser;
 		Board.updateLaser(g);
 		Optics.trace(g);
 		for (let i = 0; i < g.grid.length; i++) {
-			assert.strictEqual(g.grid[i], refs[i], 'seed ' + seed + ' restore ref ' + i);
-			assert.strictEqual(g.grid[i].diag, diags[i], 'seed ' + seed + ' restore diag ' + i);
+			assert.strictEqual(g.grid[i], refs[i], label + ' restore ref ' + i);
+			assert.strictEqual(g.grid[i].diag, diags[i], label + ' restore diag ' + i);
 		}
 	}
 }
 
-testGenerated('quarter', true, 100);
-testGenerated('shift', true, 100);
-testGenerated('shift', false, 50);
+for (const difficulty of [0, 0.5, 1]) {
+	testGenerated('quarter', true, difficulty, 200);
+	testGenerated('shift', true, difficulty, 200);
+}
 
 console.log('engine_smoke ok');

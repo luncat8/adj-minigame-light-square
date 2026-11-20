@@ -39,8 +39,17 @@ const canvas = {
 
 function element() {
 	const classes = {};
+	const listeners = {};
 	return {
-		addEventListener() {},
+		addEventListener(type, fn) {
+			if (!listeners[type]) listeners[type] = [];
+			listeners[type].push(fn);
+		},
+		dispatch(type, ev) {
+			const list = listeners[type];
+			if (!list) return;
+			for (let i = 0; i < list.length; i++) list[i](ev || {});
+		},
 		classList: {
 			toggle(name, force) {
 				if (force === undefined) force = !classes[name];
@@ -57,13 +66,14 @@ function element() {
 			}
 		},
 		checked: false,
+		value: '50',
 		style: {},
 		textContent: ''
 	};
 }
 
 const panel = {};
-for (const id of ['rotQuarter', 'rotShift', 'flipCorners', 'newPuzzle']) panel[id] = element();
+for (const id of ['rotQuarter', 'rotShift', 'flipCorners', 'difficulty', 'difficultyLabel', 'newPuzzle']) panel[id] = element();
 
 let raf = null;
 const sandbox = {
@@ -85,6 +95,7 @@ const sandbox = {
 	},
 	Int8Array,
 	Int16Array,
+	Uint8Array,
 	Array,
 	Math,
 	Object,
@@ -100,7 +111,14 @@ for (const f of files) {
 }
 if (!raf) throw new Error('no frame scheduled');
 raf();
-vm.runInContext('UI.sync({ mode: "shift", flipAtCorners: false });', sandbox);
+vm.runInContext('UI.difficulty.value = 80; UI.difficulty.dispatch("input");', sandbox);
+if (vm.runInContext('Game.settings.difficulty', sandbox) !== 0.8) throw new Error('difficulty handler');
+if (vm.runInContext('UI.difficultyLabel.textContent', sandbox) !== 'Expert') throw new Error('difficulty label');
+vm.runInContext('UI.sync({ mode: "shift", flipAtCorners: false, difficulty: 0.5 });', sandbox);
 if (vm.runInContext('UI.flip.checked', sandbox) !== false) throw new Error('panel sync checked');
 if (vm.runInContext('UI.shift.classList.contains("active")', sandbox) !== true) throw new Error('panel sync mode');
+if (vm.runInContext('UI.difficulty.value', sandbox) !== 50) throw new Error('panel sync difficulty');
+if (vm.runInContext('UI.difficultyLabel.textContent', sandbox) !== 'Medium') throw new Error('panel sync label');
+vm.runInContext('UI.newPuzzle.dispatch("click");', sandbox);
+if (!vm.runInContext('Game.board', sandbox)) throw new Error('new puzzle');
 console.log('dom_smoke ok');

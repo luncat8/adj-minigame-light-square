@@ -12,7 +12,8 @@ const Renderer = {
 	oy: 0,
 	dpr: 1,
 	bg: null,
-	colors: null
+	colors: null,
+	groupLabels: ['', '1', '2', '3']
 };
 
 Renderer.init = function(canvas, n) {
@@ -196,40 +197,55 @@ Renderer.drawBeams = function(ctx, segments, segCount, ox, oy, cell) {
 
 Renderer.drawTargets = function(ctx, b, ox, oy, cell) {
 	const colors = Renderer.colors;
+	const labels = Renderer.groupLabels;
 	const r = Math.max(2.5, cell * 0.11);
-	for (let i = 0; i < b.targets.length; i++) {
-		const t = b.targets[i];
-		const col = t.idx % b.n;
-		const row = Math.floor(t.idx / b.n);
-		const cx = ox + (col + 0.5) * cell;
-		const cy = oy + (row + 0.5) * cell;
-		const lit = b.grid[t.idx].light === t.mask;
-		ctx.globalCompositeOperation = 'source-over';
-		ctx.globalAlpha = lit ? 1 : 0.85;
-		ctx.strokeStyle = colors[t.mask];
-		ctx.lineWidth = lit ? 2.5 : 1.5;
-		ctx.beginPath();
-		ctx.moveTo(cx, cy - r);
-		ctx.lineTo(cx + r, cy);
-		ctx.lineTo(cx, cy + r);
-		ctx.lineTo(cx - r, cy);
-		ctx.closePath();
-		if (lit) {
-			ctx.fillStyle = colors[t.mask];
-			ctx.fill();
-		}
-		ctx.stroke();
-		if (lit) {
-			ctx.globalAlpha = 0.35;
-			ctx.strokeStyle = '#ffffff';
-			ctx.lineWidth = 1;
+	ctx.globalCompositeOperation = 'source-over';
+	ctx.textAlign = 'left';
+	ctx.textBaseline = 'top';
+	ctx.font = '10px monospace';
+	for (let gi = 0; gi < b.groups.length; gi++) {
+		const group = b.groups[gi];
+		const label = labels[gi + 1];
+		const color = group.exact ? null : '#ffffff';
+		for (let ci = 0; ci < group.cells.length; ci++) {
+			const t = group.cells[ci];
+			const col = t.idx % b.n;
+			const row = Math.floor(t.idx / b.n);
+			const cx = ox + (col + 0.5) * cell;
+			const cy = oy + (row + 0.5) * cell;
+			const lit = group.exact ? b.grid[t.idx].light === t.mask : b.grid[t.idx].light > 0;
+			const fill = group.exact ? colors[t.mask] : color;
+			ctx.globalAlpha = lit ? 1 : 0.85;
+			ctx.strokeStyle = fill;
+			ctx.lineWidth = lit ? 2.5 : 1.5;
 			ctx.beginPath();
-			ctx.moveTo(cx, cy - r * 1.6);
-			ctx.lineTo(cx + r * 1.6, cy);
-			ctx.lineTo(cx, cy + r * 1.6);
-			ctx.lineTo(cx - r * 1.6, cy);
+			ctx.moveTo(cx, cy - r);
+			ctx.lineTo(cx + r, cy);
+			ctx.lineTo(cx, cy + r);
+			ctx.lineTo(cx - r, cy);
 			ctx.closePath();
+			if (lit) {
+				ctx.fillStyle = fill;
+				ctx.fill();
+			}
 			ctx.stroke();
+			if (lit) {
+				ctx.globalAlpha = 0.35;
+				ctx.strokeStyle = '#ffffff';
+				ctx.lineWidth = 1;
+				ctx.beginPath();
+				ctx.moveTo(cx, cy - r * 1.6);
+				ctx.lineTo(cx + r * 1.6, cy);
+				ctx.lineTo(cx, cy + r * 1.6);
+				ctx.lineTo(cx - r * 1.6, cy);
+				ctx.closePath();
+				ctx.stroke();
+			}
+			if (label) {
+				ctx.globalAlpha = 0.9;
+				ctx.fillStyle = fill;
+				ctx.fillText(label, ox + col * cell + cell * 0.08, oy + row * cell + cell * 0.06);
+			}
 		}
 	}
 	ctx.globalAlpha = 1;
@@ -272,5 +288,5 @@ Renderer.drawStatus = function(ctx, status, solved) {
 	ctx.fillStyle = solved ? '#7dffb0' : 'rgba(210,225,255,0.75)';
 	ctx.fillText(status, 16, 14);
 	ctx.fillStyle = 'rgba(160,190,255,0.35)';
-	ctx.fillText('wheel/drag rotate   A/D laser   1-3 width   N new', 16, 32);
+	ctx.fillText('wheel/drag rotate   A/D laser   N new', 16, 32);
 };

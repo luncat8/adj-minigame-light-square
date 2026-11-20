@@ -8,7 +8,7 @@ const Game = {
 	board: null,
 	status: '',
 	solved: false,
-	settings: { mode: 'quarter', flipAtCorners: true }
+	settings: { mode: 'quarter', flipAtCorners: true, difficulty: 0.5 }
 };
 
 Game.handlers = {
@@ -21,14 +21,14 @@ Game.handlers = {
 	moveLaser: function(delta) {
 		Game.moveLaser(delta);
 	},
-	setWidth: function(w) {
-		Game.setWidth(w);
-	},
 	setMode: function(mode) {
 		Game.setMode(mode);
 	},
 	setFlipAtCorners: function(value) {
 		Game.setFlipAtCorners(value);
+	},
+	setDifficulty: function(value) {
+		Game.setDifficulty(value);
 	},
 	newGame: function() {
 		Game.newGame();
@@ -60,12 +60,12 @@ Game.newGame = function() {
 Game.refresh = function() {
 	const b = Game.board;
 	Optics.trace(b);
-	const total = b.targets.length;
-	const lit = Board.countSolved(b);
-	const solved = total > 0 && lit === total;
+	const total = b.groups.length;
+	const done = Board.countGroupsSatisfied(b);
+	const solved = total > 0 && done === total;
 	Game.solved = solved;
 	const mode = b.mode === 'shift' ? 'mode cell' : 'mode 90°';
-	Game.status = 'targets ' + lit + '/' + total + '   laser ' + b.laserCol + '   width ' + b.laserWidth + '   ' + mode + (solved ? '   SOLVED' : '');
+	Game.status = 'groups ' + done + '/' + total + '   laser ' + b.laserCol + '   ' + mode + '   d ' + b.difficulty.toFixed(2) + (solved ? '   SOLVED' : '');
 };
 
 Game.setMode = function(mode) {
@@ -81,6 +81,14 @@ Game.setFlipAtCorners = function(value) {
 	Game.settings.flipAtCorners = value;
 	UI.sync(Game.settings);
 	Game.newGame();
+};
+
+Game.setDifficulty = function(value) {
+	value = Board.clamp01(value);
+	if (Game.settings.difficulty === value) return;
+	Game.settings.difficulty = value;
+	UI.sync(Game.settings);
+	Game.refresh();
 };
 
 Game.rotate = function(ring, dir) {
