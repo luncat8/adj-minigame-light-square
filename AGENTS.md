@@ -58,8 +58,11 @@ getObj().data().action()
 - relevance is decided from head -12. never read a full file just to learn what it is.
 
 - keep this map updated when ownership changes:
-	main.js — owns boot/wiring only. edit for load order, boot, wiring.
-	ui.js — owns <ui concern>. edit for <ui changes>.
+	js/main.js — owns boot/wiring/frame loop. edit for load order, boot, wiring.
+	js/board.js — owns grid, rings, generation. edit for board/ring/target rules.
+	js/optics.js — owns laser tracing/splitting. edit for optics rules.
+	js/render.js — owns canvas drawing. edit for look, colors, layout.
+	js/input.js — owns pointer/wheel/keys. edit for controls.
 - new code goes to its owner, never appended "because the file is already there". no owner exists -> new file + header + map entry.
 - file > ~500 lines = defect. split by feature within the same plan.
 - moves are pure moves: contiguous ranges, snap to enclosing declarations, no behavior change.
@@ -129,10 +132,7 @@ getObj().data().action()
 
 ## current workstream
 
-[rewritten each phase, never accumulated. only constraints that matter right now. delete lines that stopped mattering.]
-
-e.g. splitting ui.js per plan 0.4: dom_smoke after each move, benches at end only.
-e.g. experiment loader derives scripts from index.html and runs them in one VM context.
+base engine (plan 0.1): node --check + node experiments/engine_smoke.js after edits. browser manual pass pending (no local browser).
 
 ## housekeeping
 
