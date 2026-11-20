@@ -7,3 +7,4 @@
 - Laser width >1 lights multiple columns and can solve a puzzle without ring moves. Generated puzzles stay at width 1 until width is part of puzzle state and difficulty.
 - A rejection-sampled generator needs a deterministic valid fallback; returning the last candidate can return an already-solved board.
 - Save/restore of ring state: shortest-delta rotation alone can leave an equivalent but different turn counter. Set the counter to the target after applying the delta when exact restore matters.
+- Corner flip on a shift must be symmetric to stay invertible: a negative shift flips cells leaving corners, not entering. Destination-only flips make a shift and its reverse disagree, so turns stop being a group element and applyTurns fails to restore.

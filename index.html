@@ -7,14 +7,54 @@
 <style>
 html, body { margin: 0; height: 100%; overflow: hidden; background: #030408; }
 canvas { display: block; width: 100vw; height: 100vh; touch-action: none; }
+#panel {
+	position: fixed;
+	top: 12px;
+	right: 12px;
+	z-index: 10;
+	display: flex;
+	flex-wrap: wrap;
+	align-items: center;
+	gap: 6px;
+	padding: 8px 10px;
+	background: rgba(6,10,20,0.82);
+	border: 1px solid rgba(130,190,255,0.22);
+	border-radius: 10px;
+	box-shadow: 0 6px 24px rgba(0,0,0,0.45);
+	color: #cfe0ff;
+	font: 12px/1.2 ui-monospace, monospace;
+	max-width: calc(100vw - 24px);
+}
+#panel .label { opacity: 0.6; text-transform: uppercase; letter-spacing: 0.08em; font-size: 10px; }
+#panel button {
+	background: rgba(80,140,220,0.12);
+	border: 1px solid rgba(130,190,255,0.28);
+	color: #cfe0ff;
+	border-radius: 6px;
+	padding: 5px 9px;
+	font: inherit;
+	cursor: pointer;
+}
+#panel button:hover { background: rgba(80,140,220,0.22); }
+#panel button.active { background: rgba(90,180,255,0.28); border-color: rgba(150,220,255,0.7); }
+#panel .check { display: inline-flex; align-items: center; gap: 5px; cursor: pointer; }
+#panel input { accent-color: #4da3ff; }
 </style>
 </head>
 <body>
 <canvas id="canv"></canvas>
+<div id="panel">
+	<span class="label">Rotation</span>
+	<button id="rotQuarter" type="button">90°</button>
+	<button id="rotShift" type="button">1 cell</button>
+	<label class="check"><input id="flipCorners" type="checkbox" checked> Flip at corners</label>
+	<button id="newPuzzle" type="button">New puzzle</button>
+</div>
 <script src="js/board.js"></script>
 <script src="js/optics.js"></script>
 <script src="js/render.js"></script>
 <script src="js/input.js"></script>
+<script src="js/ui.js"></script>
 <script src="js/main.js"></script>
 </body>
 </html>

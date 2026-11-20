@@ -63,6 +63,7 @@ getObj().data().action()
 	js/optics.js — owns laser tracing/splitting. edit for optics rules.
 	js/render.js — owns canvas drawing. edit for look, colors, layout.
 	js/input.js — owns pointer/wheel/keys. edit for controls.
+js/ui.js — owns settings panel controls. edit for panel layout, control wiring.
 - new code goes to its owner, never appended "because the file is already there". no owner exists -> new file + header + map entry.
 - file > ~500 lines = defect. split by feature within the same plan.
 - moves are pure moves: contiguous ranges, snap to enclosing declarations, no behavior change.
@@ -132,7 +133,7 @@ getObj().data().action()
 
 ## current workstream
 
-base engine (plan 0.1): node --check + node experiments/engine_smoke.js after edits. browser manual pass pending (no local browser).
+plan 0.1.1: node --check + node experiments/engine_smoke.js + node experiments/dom_smoke.js after edits. browser manual pass pending (no local browser).
 
 ## housekeeping
 

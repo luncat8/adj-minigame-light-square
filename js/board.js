@@ -28,6 +28,10 @@ Board.inGlass = function(row, col) {
 	return row >= o && row < o + Board.glass && col >= o && col < o + Board.glass;
 };
 
+Board.ringSize = function(ring) {
+	return Board.glass - 2 * ring;
+};
+
 Board.ringAt = function(row, col) {
 	const d = Math.max(Math.abs(row - Board.center), Math.abs(col - Board.center));
 	if (d > 3) return -1;
@@ -35,9 +39,8 @@ Board.ringAt = function(row, col) {
 };
 
 Board.ringSlots = function(ring) {
-	const n = Board.glass;
 	const s = Board.glassOff + ring;
-	const size = n - 2 * ring;
+	const size = Board.ringSize(ring);
 	const slots = [];
 	if (size <= 1) return slots;
 	const w = Board.n;
@@ -52,6 +55,8 @@ Board.create = function() {
 	const n = Board.n;
 	const b = {
 		n: n,
+		mode: 'quarter',
+		flipAtCorners: true,
 		grid: new Array(n * n),
 		rings: [],
 		targets: [],
@@ -71,7 +76,7 @@ Board.create = function() {
 		}
 	}
 	for (let ring = 0; ring < 4; ring++) {
-		b.rings.push({ size: Board.glass - 2 * ring, slots: Board.ringSlots(ring), turns: 0 });
+		b.rings.push({ size: Board.ringSize(ring), slots: Board.ringSlots(ring), turns: 0 });
 	}
 	Board.updateLaser(b);
 	return b;
@@ -86,23 +91,66 @@ Board.updateLaser = function(b) {
 	b.laserStart = start;
 };
 
+Board.period = function(b, ring) {
+	const slots = b.rings[ring].slots;
+	if (slots.length === 0) return 2;
+	return b.mode === 'shift' ? slots.length : 4;
+};
+
 Board.rotateRing = function(b, ring, dir) {
 	const slots = b.rings[ring].slots;
 	const len = slots.length;
-	if (len === 0) return;
+	if (len === 0) {
+		b.grid[Board.center * b.n + Board.center].diag ^= 1;
+		b.rings[ring].turns += dir;
+		return;
+	}
 	let buf = Board._buf;
 	if (!buf || buf.length < len) {
 		buf = new Array(len);
 		Board._buf = buf;
 	}
-	const shift = dir * (len >> 2);
+	const quarter = b.mode !== 'shift';
+	const step = quarter ? len >> 2 : 1;
+	const shift = dir * step;
 	for (let i = 0; i < len; i++) buf[i] = b.grid[slots[i]];
 	for (let i = 0; i < len; i++) {
 		const cell = buf[(i - shift + len) % len];
 		b.grid[slots[i]] = cell;
-		cell.diag ^= 1;
+		if (quarter) {
+			cell.diag ^= 1;
+			continue;
+		}
+		if (b.flipAtCorners) {
+			const c = dir > 0 ? i : (i + 1) % len;
+			if (c === 0 || c === len >> 2 || c === len >> 1 || c === (len >> 2) + (len >> 1)) cell.diag ^= 1;
+		}
 	}
 	b.rings[ring].turns += dir;
+};
+
+Board.applyTurns = function(b, turns) {
+	for (let ring = 0; ring < b.rings.length; ring++) {
+		const period = Board.period(b, ring);
+		const current = b.rings[ring].turns;
+		let delta = (turns[ring] - current) % period;
+		if (delta < 0) delta += period;
+		if (delta > period >> 1) delta -= period;
+		const steps = delta < 0 ? -delta : delta;
+		const dir = delta < 0 ? -1 : 1;
+		for (let k = 0; k < steps; k++) Board.rotateRing(b, ring, dir);
+		b.rings[ring].turns = turns[ring];
+	}
+};
+
+Board.normalizeTurns = function(b, turns) {
+	for (let ring = 0; ring < b.rings.length; ring++) {
+		const period = Board.period(b, ring);
+		let t = turns[ring] % period;
+		if (t < 0) t += period;
+		turns[ring] = t;
+	}
+	return turns;
 };
 
 Board.fillGlass = function(b, rng) {
@@ -153,21 +201,32 @@ Board.isSolved = function(b) {
 	return b.targets.length > 0 && Board.countSolved(b) === b.targets.length;
 };
 
-Board.generate = function(rng, targetCount, trace) {
+Board.generate = function(rng, settings, trace) {
 	rng = rng || Math.random;
-	targetCount = targetCount || 4;
+	settings = settings || {};
+	const mode = settings.mode === 'shift' ? 'shift' : 'quarter';
+	const flipAtCorners = settings.flipAtCorners !== false;
+	const targetCount = settings.targetCount || 4;
 	const n = Board.n;
 	let b = null;
 	for (let attempt = 0; attempt < 40; attempt++) {
 		b = Board.create();
+		b.mode = mode;
+		b.flipAtCorners = flipAtCorners;
 		Board.fillGlass(b, rng);
+		const center = b.grid[Board.center * n + Board.center];
+		center.type = Board.MIRROR;
+		center.diag = rng() < 0.5 ? 0 : 1;
+		center.mask = 1 + Math.floor(rng() * 7);
 		const solvedTurns = [0, 0, 0, 0];
-		for (let ring = 0; ring < 3; ring++) {
-			solvedTurns[ring] = Math.floor(rng() * 4);
+		for (let ring = 0; ring < 4; ring++) {
+			const period = Board.period(b, ring);
+			solvedTurns[ring] = Math.floor(rng() * period);
 			for (let k = 0; k < solvedTurns[ring]; k++) Board.rotateRing(b, ring, 1);
 		}
-		let bestCol = 0;
 		let bestCount = -1;
+		let bestCol = Board.glassOff;
+		let bestCols = [];
 		for (let col = Board.glassOff; col < Board.glassOff + Board.glass; col++) {
 			b.laserCol = col;
 			b.laserWidth = 1;
@@ -176,11 +235,14 @@ Board.generate = function(rng, targetCount, trace) {
 			const count = Board.countBorderLit(b);
 			if (count > bestCount) {
 				bestCount = count;
-				bestCol = col;
-			}
+				bestCols.length = 0;
+				bestCols.push(col);
+			} else if (count === bestCount) bestCols.push(col);
 		}
 		if (bestCount < 2) continue;
+		bestCol = bestCols[Math.floor(rng() * bestCols.length)];
 		b.laserCol = bestCol;
+		b.laserWidth = 1;
 		Board.updateLaser(b);
 		trace(b);
 		const lit = [];
@@ -201,24 +263,62 @@ Board.generate = function(rng, targetCount, trace) {
 			const idx = lit[i];
 			b.targets.push({ idx: idx, mask: b.grid[idx].light });
 		}
-		const scramble = [0, 0, 0, 0];
-		for (let ring = 0; ring < 3; ring++) {
-			scramble[ring] = 1 + Math.floor(rng() * 3);
-			for (let k = 0; k < scramble[ring]; k++) Board.rotateRing(b, ring, 1);
+		for (let ring = 0; ring < 4; ring++) {
+			const period = Board.period(b, ring);
+			const depth = 1 + Math.floor(rng() * Math.floor(period / 2));
+			const dir = rng() < 0.5 ? -1 : 1;
+			for (let k = 0; k < depth; k++) Board.rotateRing(b, ring, dir);
+		}
+		const startTurns = [0, 0, 0, 0];
+		for (let ring = 0; ring < 4; ring++) {
+			const period = Board.period(b, ring);
+			let t = b.rings[ring].turns % period;
+			if (t < 0) t += period;
+			startTurns[ring] = t;
+			b.rings[ring].turns = t;
 		}
 		b.solutionTurns = solvedTurns;
-		b.startTurns[0] = (solvedTurns[0] + scramble[0]) % 4;
-		b.startTurns[1] = (solvedTurns[1] + scramble[1]) % 4;
-		b.startTurns[2] = (solvedTurns[2] + scramble[2]) % 4;
-		b.startTurns[3] = 0;
+		b.startTurns = startTurns;
 		b.solutionLaser = bestCol;
 		b.laserCol = bestCol;
 		Board.updateLaser(b);
 		trace(b);
 		if (Board.countSolved(b) === b.targets.length) continue;
+		if (Board.laserSolves(b, trace)) continue;
+		Board.applyTurns(b, b.solutionTurns);
+		b.laserCol = bestCol;
+		Board.updateLaser(b);
+		trace(b);
+		if (!Board.isSolved(b)) continue;
+		Board.applyTurns(b, b.startTurns);
+		b.laserCol = bestCol;
+		Board.updateLaser(b);
+		trace(b);
 		return b;
 	}
 	return b;
+};
+
+Board.laserSolves = function(b, trace) {
+	const n = b.n;
+	const keep = b.laserCol;
+	const keepWidth = b.laserWidth;
+	let solved = false;
+	for (let col = 0; col < n; col++) {
+		b.laserCol = col;
+		b.laserWidth = 1;
+		Board.updateLaser(b);
+		trace(b);
+		if (Board.countSolved(b) === b.targets.length) {
+			solved = true;
+			break;
+		}
+	}
+	b.laserCol = keep;
+	b.laserWidth = keepWidth;
+	Board.updateLaser(b);
+	trace(b);
+	return solved;
 };
 
 if (typeof module !== 'undefined' && module.exports) module.exports = { Board: Board };

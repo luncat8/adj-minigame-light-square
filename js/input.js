@@ -66,6 +66,10 @@ Input.onDown = function(e) {
 	const ring = Input.ringAt(p.x, p.y);
 	if (ring < 0) return;
 	e.preventDefault();
+	if (Input.handlers.ringSize(ring) === 1) {
+		Input.handlers.rotate(ring, 1);
+		return;
+	}
 	Input.dragging = true;
 	Input.dragRing = ring;
 	Input.dragAngle = Input.angle(p.x, p.y);

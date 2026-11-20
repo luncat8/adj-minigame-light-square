@@ -7,14 +7,15 @@ const Game = {
 	canvas: null,
 	board: null,
 	status: '',
-	solved: false
+	solved: false,
+	settings: { mode: 'quarter', flipAtCorners: true }
 };
 
 Game.handlers = {
 	rotate: function(ring, dir) {
 		Game.rotate(ring, dir);
 	},
-	setLaser: function(col) {
+	laser: function(col) {
 		Game.setLaser(col);
 	},
 	moveLaser: function(delta) {
@@ -23,11 +24,20 @@ Game.handlers = {
 	setWidth: function(w) {
 		Game.setWidth(w);
 	},
+	setMode: function(mode) {
+		Game.setMode(mode);
+	},
+	setFlipAtCorners: function(value) {
+		Game.setFlipAtCorners(value);
+	},
 	newGame: function() {
 		Game.newGame();
 	},
 	ringAt: function(row, col) {
 		return Board.ringAt(row, col);
+	},
+	ringSize: function(ring) {
+		return Board.ringSize(ring);
 	}
 };
 
@@ -36,13 +46,14 @@ Game.start = function() {
 	Renderer.init(Game.canvas, Board.n);
 	Optics.init();
 	Input.init(Game.canvas, Renderer, Game.handlers);
+	UI.init(Game.handlers, Game.settings);
 	Game.newGame();
 	window.addEventListener('resize', Game.resize);
 	requestAnimationFrame(Game.frame);
 };
 
 Game.newGame = function() {
-	Game.board = Board.generate(Math.random, 4, Optics.trace);
+	Game.board = Board.generate(Math.random, Game.settings, Optics.trace);
 	Game.refresh();
 };
 
@@ -53,7 +64,23 @@ Game.refresh = function() {
 	const lit = Board.countSolved(b);
 	const solved = total > 0 && lit === total;
 	Game.solved = solved;
-	Game.status = 'targets ' + lit + '/' + total + '   laser ' + b.laserCol + '   width ' + b.laserWidth + (solved ? '   SOLVED' : '');
+	const mode = b.mode === 'shift' ? 'mode cell' : 'mode 90°';
+	Game.status = 'targets ' + lit + '/' + total + '   laser ' + b.laserCol + '   width ' + b.laserWidth + '   ' + mode + (solved ? '   SOLVED' : '');
+};
+
+Game.setMode = function(mode) {
+	if (Game.settings.mode === mode) return;
+	Game.settings.mode = mode;
+	UI.sync(Game.settings);
+	Game.newGame();
+};
+
+Game.setFlipAtCorners = function(value) {
+	value = !!value;
+	if (Game.settings.flipAtCorners === value) return;
+	Game.settings.flipAtCorners = value;
+	UI.sync(Game.settings);
+	Game.newGame();
 };
 
 Game.rotate = function(ring, dir) {
