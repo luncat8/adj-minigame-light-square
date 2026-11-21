@@ -70,7 +70,7 @@ function gameInit() {
 	gameNew();
 }
 
-// rules and difficulty apply only here; changing a control alone never replaces the puzzle
+// every committed setting change lands here, so the active puzzle always matches the controls
 function gameNew() {
 	const settings = gameSettings();
 	$('mirror-count').value = settings.mirrorCount;
