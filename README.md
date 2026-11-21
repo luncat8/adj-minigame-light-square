@@ -8,4 +8,5 @@ Fixture checks:
 	node experiments/trace_fixtures.js
 	node experiments/contract_fixtures.js
 	node experiments/generate_fixtures.js
+	node experiments/difficulty_fixtures.js
 	node experiments/dom_smoke.js
