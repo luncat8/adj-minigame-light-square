@@ -1,5 +1,5 @@
-// owns: pointer, wheel, drag gestures and control button bindings
-// edit for: bindings, drag tuning, hit rules
+// owns: pointer, wheel detent quantizing, drag gestures and control button bindings
+// edit for: bindings, drag and wheel tuning, hit rules
 
 const iBoard = typeof module !== 'undefined' && module.exports ? require('./board.js') : null;
 const iGame = typeof module !== 'undefined' && module.exports ? require('./game.js') : null;
@@ -32,6 +32,16 @@ let selected = -1;
 const gest = { pointer: -1, kind: '', ring: -1, cx: 0, cy: 0, prev: 0, acc: 0 };
 const iPt = { x: 0, y: 0 };
 
+const WHEEL_GAP_MS = 120;
+const WHEEL_LEARN_MS = 200;
+const WHEEL_MID = 0.5;
+const WHEEL_LINE_PX = 100 / 3;
+const WHEEL_PAGE_PX = 800;
+const WHEEL_UNIT_PX = [1, WHEEL_LINE_PX, WHEEL_PAGE_PX];
+const wheel = { dir: 0, first: 0, last: -Infinity, sum: 0, acc: 0, notch: 100, n: 0, head: 0 };
+const wheelSamples = new Float64Array(8);
+const wheelSorted = new Float64Array(8);
+
 function inputInit(root) {
 	iRoot = root;
 	// ring cells are glass-local (49 cells); map them onto board coordinates
@@ -50,8 +60,6 @@ function inputInit(root) {
 	root.addEventListener('pointerup', onUp);
 	root.addEventListener('pointercancel', onUp);
 	root.addEventListener('wheel', onWheel, { passive: false });
-	bindButton('btn-cw', () => { if (selected >= 0) gMove(selected, 1); });
-	bindButton('btn-ccw', () => { if (selected >= 0) gMove(selected, -1); });
 	bindButton('btn-left', () => gStep(-1));
 	bindButton('btn-right', () => gStep(1));
 	bindButton('btn-generate', () => gNew());
@@ -63,18 +71,7 @@ function inputInit(root) {
 	bandEl.addEventListener('input', syncBand);
 	syncBand();
 	select(0);
-	if (typeof window !== 'undefined') {
-		window.addEventListener('blur', () => gPrevEnd());
-		window.addEventListener('keydown', onKey);
-	}
-}
-
-function onKey(e) {
-	if (e.ctrlKey || e.metaKey || e.altKey) return;
-	const tag = e.target && e.target.tagName;
-	if (tag === 'INPUT' || tag === 'SELECT') return;
-	const ring = e.key >= '1' && e.key <= '4' ? e.key.charCodeAt(0) - 49 : -1;
-	if (ring >= 0) select(ring);
+	if (typeof window !== 'undefined') window.addEventListener('blur', () => gPrevEnd());
 }
 
 function bindButton(id, fn) {
@@ -187,16 +184,50 @@ function onUp(e) {
 function onWheel(e) {
 	const cell = iCell(e.clientX, e.clientY);
 	if (!cell) return;
-	if (cell.row === iN - 1 && cell.col >= iMin && cell.col <= iMax) {
-		e.preventDefault();
-		gStep(e.deltaY < 0 ? 1 : -1);
-		return;
-	}
-	const ring = ringAt(cell);
-	if (ring < 0) return;
+	const onEmitter = cell.row === iN - 1 && cell.col >= iMin && cell.col <= iMax;
+	const ring = onEmitter ? -1 : ringAt(cell);
+	if (!onEmitter && ring < 0) return;
 	e.preventDefault();
-	select(ring);
-	gMove(ring, e.deltaY < 0 ? 1 : -1);
+	if (ring >= 0) select(ring);
+	const dir = wheelDetent(e);
+	if (!dir) return;
+	if (onEmitter) gStep(dir);
+	else gMove(ring, dir);
+}
+
+// one step per physical detent whatever the OS lines-per-notch or hi-res split: a burst after idle steps at once,
+// then each step fires mid-detent of the learned size so estimate error and split count cannot double-step; max one per event
+function wheelDetent(e) {
+	if (!e.deltaY) return 0;
+	const dir = e.deltaY < 0 ? 1 : -1;
+	const mag = Math.abs(e.deltaY) * WHEEL_UNIT_PX[e.deltaMode];
+	const t = e.timeStamp;
+	const fresh = dir !== wheel.dir || t - wheel.last > WHEEL_GAP_MS;
+	if (fresh) wheelLearn();
+	wheel.last = t;
+	if (fresh) {
+		wheel.dir = dir;
+		wheel.first = t;
+		wheel.sum = mag;
+		wheel.acc = Math.min(mag - (1 + WHEEL_MID) * wheel.notch, 0);
+		return dir;
+	}
+	wheel.sum += mag;
+	wheel.acc += mag;
+	if (wheel.acc < 0) return 0;
+	wheel.acc = Math.min(wheel.acc - wheel.notch, 0);
+	return dir;
+}
+
+// a short isolated burst holds one detent or a quick multi-detent flick; the lower quartile skips flicks and stray partial nudges
+function wheelLearn() {
+	if (!wheel.dir || wheel.last - wheel.first > WHEEL_LEARN_MS) return;
+	wheelSamples[wheel.head] = wheel.sum;
+	wheel.head = (wheel.head + 1) % wheelSamples.length;
+	if (wheel.n < wheelSamples.length) wheel.n++;
+	for (let i = 0; i < wheel.n; i++) wheelSorted[i] = wheelSamples[i];
+	wheelSorted.subarray(0, wheel.n).sort();
+	wheel.notch = wheelSorted[wheel.n >> 2];
 }
 
 function canvasPoint(e) {
