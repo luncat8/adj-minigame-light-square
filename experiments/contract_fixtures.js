@@ -24,12 +24,17 @@ const recv = (...hits) => {
 };
 
 const easy = goal.createContract([target(A), target(B), target(C)], 2, false);
-let result = goal.evaluateContract(easy, recv([A, 1]));
+c.eq(goal.contractState(null), goal.CONTRACT_NONE, 'null result is idle');
+let result = goal.evaluateContract(easy, recv([OUT, 7]));
+c.eq(goal.contractState(result), goal.CONTRACT_NONE, 'outside-only hit stays idle');
+result = goal.evaluateContract(easy, recv([A, 1]));
 c.eq(result.matches, 1, 'below quota matches');
 c.eq(result.percent, 50, 'below quota percent');
+c.eq(goal.contractState(result), goal.CONTRACT_PARTIAL, 'below quota is partial');
 c.ok(!result.won && result.missingLight && !result.wrongColor, 'below quota reports missing');
 result = goal.evaluateContract(easy, recv([A, 1], [B, 2], [OUT, 7]));
 c.ok(result.won && result.percent === 100 && result.extras === 0, 'at quota permits outside light');
+c.eq(goal.contractState(result), goal.CONTRACT_MATCH, 'won result is met');
 c.ok(!result.missingLight, 'optional dark target not reported');
 result = goal.evaluateContract(easy, recv([A, 1], [B, 2], [C, 7]));
 c.ok(result.won && result.matches === 3 && result.percent === 100, 'above quota capped');
@@ -40,8 +45,11 @@ c.ok(goal.evaluateContract(lower, recv([A, 1], [B, 2])).won, 'lower quota preser
 c.ok(goal.evaluateContract(enlarged, recv([A, 1], [B, 2])).won, 'larger pool preserves win');
 
 const forbidden = goal.createContract([target(A), target(B), target(C)], 2, true);
+result = goal.evaluateContract(forbidden, recv([OUT, 7]));
+c.eq(goal.contractState(result), goal.CONTRACT_NONE, 'forbidden outside alone stays idle');
 result = goal.evaluateContract(forbidden, recv([A, 1], [B, 2], [OUT, 7]));
 c.ok(!result.won && result.forbiddenLight && result.extras === 1, 'forbidden extra blocks win');
+c.eq(goal.contractState(result), goal.CONTRACT_PARTIAL, 'quota blocked by extra is partial');
 c.eq(result.percent, 66, 'extra counted in denominator');
 result = goal.evaluateContract(forbidden, recv([A, 1], [OUT, 7], [D, 2]));
 c.eq(result.percent, 25, 'multiple extras and unmet quota');
@@ -51,6 +59,9 @@ const strict = goal.createStrictContract([target(A, 1), target(B, 4)]);
 result = goal.evaluateContract(strict, recv([A, 3], [B, 4]));
 c.ok(!result.won && result.matches === 1 && result.wrongColor && !result.missingLight, 'superset is wrong color');
 c.eq(result.status[A], goal.CONTRACT_PARTIAL, 'wrong color partial');
+result = goal.evaluateContract(strict, recv([A, 3]));
+c.eq(goal.contractState(result), goal.CONTRACT_PARTIAL, 'wrong color alone is partial');
+result = goal.evaluateContract(strict, recv([A, 3], [B, 4]));
 result = goal.evaluateContract(strict, recv([A, 3], [OUT, 7]));
 c.ok(result.wrongColor && result.missingLight && result.forbiddenLight, 'wrong, missing and extra feedback are independent');
 result = goal.evaluateContract(strict, recv([A, 1], [B, 4]));
@@ -122,8 +133,8 @@ c.ok(goal.evaluateContract(splitExtra, trace.traceRecv).forbiddenLight, 'real sp
 const root = path.join(__dirname, '..');
 const html = fs.readFileSync(path.join(root, 'index.html'), 'utf8');
 const scripts = Array.from(html.matchAll(/<script src="([^"]+)"><\/script>/g), match => match[1]);
-c.eq(scripts.length, 9, 'classic script count');
-c.same(scripts, ['board.js', 'trace.js', 'contract.js', 'hints.js', 'generate.js', 'render.js', 'game.js', 'input.js', 'app.js'], 'classic scripts load in order');
+c.eq(scripts.length, 10, 'classic script count');
+c.same(scripts, ['board.js', 'trace.js', 'contract.js', 'hints.js', 'generate.js', 'rim.js', 'render.js', 'game.js', 'input.js', 'app.js'], 'classic scripts load in order');
 const inputs = {};
 for (const id of ['hint-current', 'hint-discoveries', 'hint-targets']) {
 	const input = html.match(new RegExp('<input[^>]*id="' + id + '"[^>]*>'));

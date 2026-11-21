@@ -5,17 +5,9 @@
 - use a single tab indentation. LF end.
 const $ = id => document.getElementById(id);
 
-- avoid deep nesting of braces { } and long if-else.
-- flatten with early returns, helper functions, or flat data tables.
-
+- avoid deep nesting of braces { } and long if-else; flatten with early returns, helper functions, or flat data tables.
 - avoid duplication of code.
-
-- avoid allocations in the hot path (per-frame loop, sim, render).
-- no new {}, [], object literals, closures, or string concat in the frame loop.
-- reuse preallocated buffers / typed arrays / scratch objects.
-- allocate once at setup, mutate in place per frame.
-- these are not strict rules, use best.
-
+- avoid allocations in the hot path (per-frame loop, sim, render): no new {}, [], object literals, closures, or string concat in the frame loop. Reuse preallocated buffers / typed arrays / scratch objects; allocate once at setup, mutate in place per frame. These are not strict rules, use best.
 - comments say why and decisions only. what-code-does belongs in names.
 - 0-2 comments per function is normal. 3+ usually means names or structure are wrong — rename or restructure, don't comment.
 - no banners, no commented-out code, no TODOs in code — that goes to plan or findings instead.
@@ -64,16 +56,17 @@ getObj().data().action()
 	contract.js — owns secret contracts, scoring and discovery history. edit for quotas, colors and feedback.
 	hints.js — owns hint checkbox state and renderer-facing overlay selection. edit for visibility and preview suppression.
 	generate.js — owns solvable generation, replay-verified witnesses and presets. edit for sampling, band mapping, scramble policy, fallback.
-	render.js — owns canvas painting of pose, beams, receivers, overlays and sizing. edit for visuals, glow, overlay shapes.
+	rim.js — owns out-of-border rim items (boiler, lamp, billboard, crystal, detector, rail). edit for rim visuals and state animations.
+	render.js — owns canvas painting of pose, animated beams, receivers, overlays and sizing. edit for board visuals, dash motion, overlay shapes.
 	game.js — owns live puzzle/progress state, preview switching and readouts. edit for game flow, band labels, wording.
-	input.js — owns pointer, wheel, drag gestures and button bindings. edit for bindings, drag tuning, hit rules.
+	input.js — owns pointer, wheel, drag gestures, ring keys and button bindings. edit for bindings, drag tuning, hit rules.
 	app.js — composer: root, $ and boot wiring only. implements nothing.
 	experiments/check.js — owns fixture assertion counters. edit for assertion helpers.
 	experiments/move_fixtures.js — owns 0.1 move invariant fixtures. edit for stride, corner, center, emitter cases.
 	experiments/trace_fixtures.js — owns 0.2 transport fixtures. edit for propagation cases.
-	experiments/contract_fixtures.js — owns 0.3 scoring, discovery, hint and script-order fixtures. edit for contract cases.
+	experiments/contract_fixtures.js — owns 0.3 scoring, discovery, contractState, hint and script-order fixtures. edit for contract cases.
 	experiments/generate_fixtures.js — owns 0.4 generation acceptance. edit for band and fallback cases.
-	experiments/dom_smoke.js — owns 0.5 integration smoke under a stub DOM. edit for boot and handler coverage.
+	experiments/dom_smoke.js — owns 0.5–0.6 integration and classic-scope smoke under a stub DOM. edit for boot, handler and rim-item coverage.
 - new code goes to its owner, never appended "because the file is already there". no owner exists -> new file + header + map entry.
 - file > ~500 lines = defect. split by feature within the same plan.
 - moves are pure moves: contiguous ranges, snap to enclosing declarations, no behavior change.
@@ -143,10 +136,8 @@ getObj().data().action()
 
 ## current workstream
 
-[rewritten each phase, never accumulated. only constraints that matter right now. delete lines that stopped mattering.]
-
-plan-order implementation: 0.1–0.5 done. 0.5 wired the page: render/game/input/app compose the play surface; dom_smoke covers integration; L2 = all five experiment scripts whenever index.html or load order changes.
-next: 0.6 rim items — draw them in render.js's border-receiver pass, states keyed to the live 0.3 result (idle / partial M<K / met M>=K, E=0), never feeding back into trace or scoring.
+0.1–0.6 implemented. Play surface animates short directed beam dashes from emitter to receiver and paints reactive rim items in `RIM_PAD` margin (`render.js`), driven by `contractState(result)` without touching trace or scoring. `dom_smoke.js` covers handlers, rim states and shared classic-script scope; L2 = all five experiment scripts whenever `index.html` or load order changes.
+next: optional deferred scope from `draft.txt` / `0.1.0-plan.md` — physical multi-column emitter width (1–3 columns in `trace.js` + `generate.js` + `render.js`), or ring rotation transition polish.
 
 ## housekeeping
 

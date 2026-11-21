@@ -83,6 +83,13 @@ function updateContractProgress(progress, recv) {
 	return result;
 }
 
+function contractState(result) {
+	if (!result) return CONTRACT_NONE;
+	if (result.won) return CONTRACT_MATCH;
+	if (result.matches > 0 || result.wrongColor) return CONTRACT_PARTIAL;
+	return CONTRACT_NONE;
+}
+
 if (typeof module !== 'undefined') module.exports = {
 	CONTRACT_ANY,
 	CONTRACT_NONE,
@@ -91,6 +98,7 @@ if (typeof module !== 'undefined') module.exports = {
 	createContract,
 	createStrictContract,
 	evaluateContract,
+	contractState,
 	createContractProgress,
 	updateContractProgress
 };

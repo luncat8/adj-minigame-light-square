@@ -62,7 +62,19 @@ function inputInit(root) {
 	const syncBand = () => { $('band-label').textContent = gBand(bandEl.value); };
 	bandEl.addEventListener('input', syncBand);
 	syncBand();
-	if (typeof window !== 'undefined') window.addEventListener('blur', () => gPrevEnd());
+	select(0);
+	if (typeof window !== 'undefined') {
+		window.addEventListener('blur', () => gPrevEnd());
+		window.addEventListener('keydown', onKey);
+	}
+}
+
+function onKey(e) {
+	if (e.ctrlKey || e.metaKey || e.altKey) return;
+	const tag = e.target && e.target.tagName;
+	if (tag === 'INPUT' || tag === 'SELECT') return;
+	const ring = e.key >= '1' && e.key <= '4' ? e.key.charCodeAt(0) - 49 : -1;
+	if (ring >= 0) select(ring);
 }
 
 function bindButton(id, fn) {
@@ -118,14 +130,13 @@ function onDown(e) {
 	}
 	const ring = ringAt(cell);
 	if (ring < 0) return;
-	gest.pointer = e.pointerId;
-	iRoot.setPointerCapture(e.pointerId);
 	select(ring);
 	if (ring === 3) {
-		gest.kind = '';
 		gMove(3, 1);
 		return;
 	}
+	gest.pointer = e.pointerId;
+	iRoot.setPointerCapture(e.pointerId);
 	gest.kind = 'ring';
 	gest.ring = ring;
 	const mid = iRoot.width / 2;
@@ -147,6 +158,7 @@ function onMove(e) {
 		gSetE(cell.col);
 		return;
 	}
+	if (gest.kind !== 'ring') return;
 	const pt = canvasPoint(e);
 	const a = Math.atan2(pt.y - gest.cy, pt.x - gest.cx);
 	let da = a - gest.prev;

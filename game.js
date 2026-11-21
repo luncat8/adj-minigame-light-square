@@ -18,6 +18,7 @@ const fSide = gBoard ? gBoard.RING_SIDE : RING_SIDE;
 const fSlots = gBoard ? gBoard.stepSlots : stepSlots;
 const fMQ = gBoard ? gBoard.MODE_QUARTER : MODE_QUARTER;
 const fTrace = gTrace ? gTrace.traceLight : traceLight;
+const fEval = gGoal ? gGoal.evaluateContract : evaluateContract;
 const fProgress = gGoal ? gGoal.createContractProgress : createContractProgress;
 const fUpdate = gGoal ? gGoal.updateContractProgress : updateContractProgress;
 const fControls = gHints ? gHints.readHintControls : readHintControls;
@@ -41,9 +42,10 @@ const live = {
 	puzzle: null,
 	gen: null,
 	progress: null,
+	previewResult: null,
 	previewing: false,
 	// persistent view handed to the renderer; only refs and scalars change
-	view: { tiles: null, emitter: 0, seg: null, recv: null, overlays: null, previewing: false }
+	view: { tiles: null, emitter: 0, seg: null, recv: null, overlays: null, result: null, previewing: false }
 };
 
 function gameBandLabel(band) {
@@ -65,6 +67,7 @@ function gameNew() {
 
 function startPuzzle(cand) {
 	live.gen = cand;
+	live.previewResult = null;
 	live.previewing = false;
 	const p = fCreate(cand.mode, cand.corner);
 	p.tiles.set(cand.start);
@@ -91,6 +94,7 @@ function publishView() {
 	v.seg = segBuf();
 	v.recv = recvBuf();
 	v.overlays = fOverlay(live.progress, fControls(), live.previewing);
+	v.result = live.previewing ? live.previewResult : live.progress.result;
 	v.previewing = live.previewing;
 	fRenderView(v);
 }
@@ -147,6 +151,7 @@ function gamePreviewStart() {
 	if (live.previewing) return;
 	live.previewing = true;
 	fTrace(live.gen.witness, live.gen.witnessEmitter);
+	live.previewResult = fEval(live.progress.contract, recvBuf());
 	publishView();
 	$('readout-msg').textContent = 'preview — release to restore';
 }
@@ -156,7 +161,7 @@ function gamePreviewEnd() {
 	live.previewing = false;
 	fTrace(live.puzzle.tiles, live.puzzle.emitter);
 	publishView();
-	$('readout-msg').textContent = feedback(live.progress.result);
+	readout(live.progress.result);
 }
 
 function gamePreviewing() {

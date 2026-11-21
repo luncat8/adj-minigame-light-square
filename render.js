@@ -1,8 +1,9 @@
-// owns: canvas painting of the board pose, beams, receivers and hint overlays
-// edit for: visuals, glow, overlay shapes, sizing
+// owns: canvas painting of pose, animated beams, receivers and hint overlays
+// edit for: board visuals, dash motion, overlay shapes, sizing
 
 const rBoard = typeof module !== 'undefined' && module.exports ? require('./board.js') : null;
 const rGoal = typeof module !== 'undefined' && module.exports ? require('./contract.js') : null;
+const rRim = typeof module !== 'undefined' && module.exports ? require('./rim.js') : null;
 
 const rN = rBoard ? rBoard.BOARD_N : BOARD_N;
 const rGlass = rBoard ? rBoard.GLASS : GLASS;
@@ -12,29 +13,40 @@ const rRingSide = rBoard ? rBoard.RING_SIDE : RING_SIDE;
 const rAny = rGoal ? rGoal.CONTRACT_ANY : CONTRACT_ANY;
 const rPartial = rGoal ? rGoal.CONTRACT_PARTIAL : CONTRACT_PARTIAL;
 const rMatch = rGoal ? rGoal.CONTRACT_MATCH : CONTRACT_MATCH;
+const rDrawRim = rRim ? rRim.drawRimItems : drawRimItems;
+
+const RIM_PAD = 1.5;
+const RENDER_SPAN = rN + RIM_PAD * 2;
 
 // per-channel styles; additive composite rebuilds white from R+G+B
 const CH_CORE = ['rgb(255,52,40)', 'rgb(64,255,72)', 'rgb(92,108,255)'];
-const CH_GLOW = ['rgba(255,40,24,0.16)', 'rgba(40,255,40,0.16)', 'rgba(72,88,255,0.20)'];
+const CH_GLOW = ['rgba(255,40,24,0.22)', 'rgba(40,255,40,0.22)', 'rgba(72,88,255,0.26)'];
 const MASK_STYLE = [null,
 	'rgb(255,96,96)', 'rgb(96,255,96)', 'rgb(255,255,96)',
 	'rgb(96,96,255)', 'rgb(255,96,255)', 'rgb(96,255,255)', 'rgb(224,228,236)'];
-const STUB_X = [0, 0.5, 0, -0.5];
-const STUB_Y = [-0.5, 0, 0.5, 0];
+const STEP_X = [0, 1, 0, -1];
+const STEP_Y = [-1, 0, 1, 0];
+const DASH_NONE = [];
+const DASH_PARTIAL = [0.16, 0.12];
+// 0.5-cell period divides every 1-cell step evenly, so dash phase stays continuous across turns
+const DASH_BEAM = [0.2, 0.3];
+const DASH_PERIOD = 0.5;
+const BEAM_SPEED = 0.0018;
+
+const BOARD_EDGE = 'rgba(150,180,255,0.1)';
 const GLASS_FILL = 'rgba(150,180,255,0.06)';
 const GLASS_EDGE = 'rgba(150,180,255,0.16)';
 const SLOT_DIM = 'rgba(150,160,180,0.4)';
 const INK = 'rgba(236,240,248,0.9)';
 const INK_HALF = 'rgba(236,240,248,0.45)';
-const SEL_STYLE = 'rgba(236,240,248,0.35)';
+const SEL_STYLE = 'rgba(236,240,248,0.38)';
 const TAU = Math.PI * 2;
 
 let rCanv = null;
 let rCtx = null;
 let rCell = 0;
-let rDirty = true;
 let rSel = -1;
-const rView = { tiles: null, emitter: 0, seg: null, recv: null, overlays: null, previewing: false };
+const rView = { tiles: null, emitter: 0, seg: null, recv: null, overlays: null, result: null, previewing: false };
 const rPt = { row: 0, col: 0 };
 
 function renderInit(root) {
@@ -53,13 +65,10 @@ function sizeCanvas() {
 		rCanv.width = px;
 		rCanv.height = px;
 	}
-	rCell = px / rN;
-	rDirty = true;
+	rCell = px / RENDER_SPAN;
 }
 
-function renderInvalidate() {
-	rDirty = true;
-}
+function renderInvalidate() {}
 
 function renderView(v) {
 	rView.tiles = v.tiles;
@@ -67,49 +76,49 @@ function renderView(v) {
 	rView.seg = v.seg;
 	rView.recv = v.recv;
 	rView.overlays = v.overlays;
+	rView.result = v.result;
 	rView.previewing = v.previewing;
-	rDirty = true;
 }
 
 function renderSetSelection(ring) {
-	if (ring === rSel) return;
 	rSel = ring;
-	rDirty = true;
 }
 
 function renderPointToCell(x, y) {
 	const rect = rCanv.getBoundingClientRect();
-	const s = rect.width / rN;
-	const col = Math.floor((x - rect.left) / s);
-	const row = Math.floor((y - rect.top) / s);
+	const s = rect.width / RENDER_SPAN;
+	const col = Math.floor((x - rect.left) / s - RIM_PAD);
+	const row = Math.floor((y - rect.top) / s - RIM_PAD);
 	if (row < 0 || row >= rN || col < 0 || col >= rN) return null;
 	rPt.row = row;
 	rPt.col = col;
 	return rPt;
 }
 
-function rFrame() {
-	if (rDirty) {
-		rDirty = false;
-		paint();
-	}
+function rFrame(now) {
+	paint(now || 0);
 	requestAnimationFrame(rFrame);
 }
 
 // canvas.width resets ctx state, so cap/join/composite are set every paint
-function paint() {
+function paint(t) {
 	if (!rView.tiles) return;
 	rCtx.setTransform(1, 0, 0, 1, 0, 0);
 	rCtx.globalCompositeOperation = 'source-over';
+	rCtx.globalAlpha = 1;
 	rCtx.lineCap = 'round';
 	rCtx.lineJoin = 'round';
 	rCtx.fillStyle = '#000';
 	rCtx.fillRect(0, 0, rCanv.width, rCanv.height);
-	rCtx.setTransform(rCell, 0, 0, rCell, 0, 0);
+	const orig = rCell * RIM_PAD;
+	rCtx.setTransform(rCell, 0, 0, rCell, orig, orig);
+	rCtx.strokeStyle = BOARD_EDGE;
+	rCtx.lineWidth = 0.04;
+	rCtx.strokeRect(0.02, 0.02, rN - 0.04, rN - 0.04);
 	drawGlass();
-	drawBeams();
+	drawBeams(t);
 	drawEmitterDevice();
-	drawReceivers();
+	drawReceivers(t);
 	drawOverlays();
 	if (!rView.previewing) drawSelection();
 	if (rView.previewing) drawPreviewTag();
@@ -145,37 +154,39 @@ function drawGlass() {
 	}
 }
 
-// stubs meet at cell centers, so the centerline survives glow and splits
-function drawBeams() {
+// butt caps join straddling dashes cleanly at cell centers without additive double-brightening
+function drawBeams(t) {
 	rCtx.globalCompositeOperation = 'lighter';
+	rCtx.lineCap = 'butt';
+	rCtx.setLineDash(DASH_BEAM);
+	rCtx.lineDashOffset = -((t * BEAM_SPEED) % DASH_PERIOD);
 	const seg = rView.seg;
-	for (let i = 0; i < rN * rN; i++) {
-		const r = (i / rN) | 0;
-		const c = i - r * rN;
-		for (let d = 0; d < 4; d++) {
-			const bits = seg[i * 4 + d];
-			if (!bits) continue;
+	const ex = rView.emitter + 0.5;
+	for (let ch = 0; ch < 3; ch++) {
+		rCtx.beginPath();
+		rCtx.moveTo(ex, rN - 0.5);
+		rCtx.lineTo(ex, rN - 1.5);
+		for (let i = 0; i < rN * rN; i++) {
+			const r = (i / rN) | 0;
+			const c = i - r * rN;
 			const x = c + 0.5;
 			const y = r + 0.5;
-			const tx = x + STUB_X[d];
-			const ty = y + STUB_Y[d];
-			for (let ch = 0; ch < 3; ch++) {
-				if (!(bits >> ch & 1)) continue;
-				rCtx.strokeStyle = CH_GLOW[ch];
-				rCtx.lineWidth = 0.3;
-				rCtx.beginPath();
+			for (let d = 0; d < 4; d++) {
+				if (!(seg[i * 4 + d] >> ch & 1)) continue;
 				rCtx.moveTo(x, y);
-				rCtx.lineTo(tx, ty);
-				rCtx.stroke();
-				rCtx.strokeStyle = CH_CORE[ch];
-				rCtx.lineWidth = 0.07;
-				rCtx.beginPath();
-				rCtx.moveTo(x, y);
-				rCtx.lineTo(tx, ty);
-				rCtx.stroke();
+				rCtx.lineTo(x + STEP_X[d], y + STEP_Y[d]);
 			}
 		}
+		rCtx.strokeStyle = CH_GLOW[ch];
+		rCtx.lineWidth = 0.24;
+		rCtx.stroke();
+		rCtx.strokeStyle = CH_CORE[ch];
+		rCtx.lineWidth = 0.075;
+		rCtx.stroke();
 	}
+	rCtx.setLineDash(DASH_NONE);
+	rCtx.lineDashOffset = 0;
+	rCtx.lineCap = 'round';
 }
 
 function drawEmitterDevice() {
@@ -185,16 +196,10 @@ function drawEmitterDevice() {
 	rCtx.beginPath();
 	rCtx.arc(c + 0.5, rN - 0.5, 0.34, 0, TAU);
 	rCtx.fill();
-	rCtx.globalCompositeOperation = 'lighter';
-	rCtx.strokeStyle = 'rgba(255,255,255,0.9)';
-	rCtx.lineWidth = 0.07;
-	rCtx.beginPath();
-	rCtx.moveTo(c + 0.5, rN - 1);
-	rCtx.lineTo(c + 0.5, rN - 1.5);
-	rCtx.stroke();
 }
 
-function drawReceivers() {
+// one pass owns both border receiver slots and the out-of-border rim items (plan 0.6)
+function drawReceivers(t) {
 	const recv = rView.recv;
 	rCtx.globalCompositeOperation = 'source-over';
 	rCtx.strokeStyle = SLOT_DIM;
@@ -205,6 +210,7 @@ function drawReceivers() {
 		drawSlot(i, 0, recv);
 		drawSlot(i, rN - 1, recv);
 	}
+	rDrawRim(rCtx, rView.result, recv, rView.emitter, t);
 }
 
 function drawSlot(r, c, recv) {
@@ -278,9 +284,9 @@ function drawCurrent(status) {
 			rCtx.lineTo(cx + 0.16, cy - 0.12);
 			rCtx.stroke();
 		} else if (s === rPartial) {
-			rCtx.setLineDash([0.16, 0.12]);
+			rCtx.setLineDash(DASH_PARTIAL);
 			rCtx.strokeRect(c + 0.12, r + 0.12, 0.76, 0.76);
-			rCtx.setLineDash([]);
+			rCtx.setLineDash(DASH_NONE);
 			rCtx.beginPath();
 			rCtx.arc(cx, cy, 0.12, 0, Math.PI);
 			rCtx.fillStyle = INK;
@@ -326,7 +332,7 @@ function drawSelection() {
 		return;
 	}
 	const side = rRingSide[rSel];
-	const off = (rGlass - side) / 2;
+	const off = rGlassOff + (rGlass - side) / 2;
 	rCtx.strokeRect(off + 0.1, off + 0.1, side - 0.2, side - 0.2);
 }
 
@@ -340,6 +346,8 @@ function drawPreviewTag() {
 }
 
 if (typeof module !== 'undefined') module.exports = {
+	RIM_PAD,
+	RENDER_SPAN,
 	renderInit,
 	renderView,
 	renderSetSelection,
