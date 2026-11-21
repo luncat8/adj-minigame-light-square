@@ -33,6 +33,10 @@ const PROFILE_ANCHORS = [
 	[0.85, 0.5, 10, 3],
 	[1, 1, 14, 4]
 ];
+// selection target walk score at dial 0 and 1, linear between. High 1 = hardest verified
+// candidate: training pools reach 0.97–0.99 at dial 1 (exact par 5–6 vs 2.8 at 0.85, log 0.8-calibrate-train-high*)
+const TARGET_LOW = 0.20;
+const TARGET_HIGH = 1;
 // action ids match PRESET_MOVES: ring r ccw 2r / cw 2r+1, center flip 7, emitter left 8 / right 9
 const ACT_CENTER = 7;
 const ACT_LEFT = 8;
@@ -77,12 +81,16 @@ function profile(difficulty) {
 	};
 }
 
+function targetScore(difficulty) {
+	return TARGET_LOW + (TARGET_HIGH - TARGET_LOW) * difficulty;
+}
+
 // explicit, validated generation request shared by generate and presetFor
 function genSettings(seed, mode, corner, difficulty, mirrorCount) {
 	if (!Number.isInteger(mirrorCount) || mirrorCount < 1 || mirrorCount > GL * GL) throw new RangeError('mirror count must be an integer 1…' + GL * GL);
 	if (!Number.isFinite(difficulty)) throw new RangeError('difficulty must be finite');
 	const dial = Math.min(1, Math.max(0, difficulty));
-	return { seed: seed >>> 0, mode, corner, difficulty: dial, mirrorCount, profile: profile(dial) };
+	return { seed: seed >>> 0, mode, corner, difficulty: dial, mirrorCount, profile: profile(dial), target: targetScore(dial) };
 }
 
 function countMirrors(tiles) {
@@ -234,7 +242,7 @@ function buildCandidate(req, witness, sc, contract, hits, preset, attempts) {
 		attempts,
 		verifiedCandidates: 0,
 		selectionScore: null,
-		targetScore: 0.20 + 0.65 * req.difficulty,
+		targetScore: req.target,
 		measurement: null,
 		witnessHits: hits
 	};
@@ -293,6 +301,8 @@ function measureCandidate(cand, index) {
 // Strict improvement preserves the earliest candidate on ties; timing never affects selection.
 function generate(seed, mode, corner, difficulty, mirrorCount = MIRRORS_DEFAULT, opts = {}) {
 	const req = genSettings(seed, mode, corner, difficulty, mirrorCount);
+	// calibration sweeps probe other targets without touching the shipped mapping
+	if (opts.target !== undefined) req.target = opts.target;
 	const prof = req.profile;
 	const maxAttempts = opts.maxAttempts ?? GEN_ATTEMPTS;
 	const candidateCount = opts.candidateCount ?? GEN_CANDIDATES;
@@ -333,6 +343,7 @@ if (typeof module !== 'undefined') module.exports = {
 	ACT_RIGHT,
 	makeRng,
 	profile,
+	targetScore,
 	genSettings,
 	countMirrors,
 	randomGlass,
