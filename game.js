@@ -24,10 +24,11 @@ const fUpdate = gGoal ? gGoal.updateContractProgress : updateContractProgress;
 const fControls = gHints ? gHints.readHintControls : readHintControls;
 const fOverlay = gHints ? gHints.hintOverlay : hintOverlay;
 const fGenerate = gGen ? gGen.generate : generate;
-const fRng = gGen ? gGen.makeRng : makeRng;
 const fRenderView = gRender ? gRender.renderView : renderView;
 
-const BAND_LABELS = ['few targets · any color', 'all targets · any color', 'all targets · exact colors'];
+const BAND_LABELS = ['few targets · any color', 'most targets · any color', 'all targets · exact colors'];
+// band stops on the generator dial whose profile matches each label (0.8 profile anchors)
+const BAND_DIAL = [0, 1 / 3, 1];
 
 // trace buffers are lazy; read them at call time, never at load
 function recvBuf() {
@@ -61,8 +62,8 @@ function gameNew() {
 	const mode = parseInt($('rule-mode').value, 10);
 	const corner = $('rule-corner').checked;
 	const band = parseInt($('band').value, 10);
-	const seed = (Date.now() ^ (Math.random() * 0x7fffffff)) | 0;
-	startPuzzle(fGenerate(fRng(seed), mode, corner, band));
+	const seed = (Date.now() ^ (Math.random() * 0x7fffffff)) >>> 0;
+	startPuzzle(fGenerate(seed, mode, corner, BAND_DIAL[band]));
 }
 
 function startPuzzle(cand) {
