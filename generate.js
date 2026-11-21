@@ -1,28 +1,28 @@
 // owns: solvable generation, difficulty bands, replay-verified witnesses and presets
 // edit for: sampling, band mapping, scramble policy, fallback puzzles
 
-const gBoard = typeof module !== 'undefined' && module.exports ? require('./board.js') : null;
-const gTrace = typeof module !== 'undefined' && module.exports ? require('./trace.js') : null;
-const gGoal = typeof module !== 'undefined' && module.exports ? require('./contract.js') : null;
+const nBoard = typeof module !== 'undefined' && module.exports ? require('./board.js') : null;
+const nTrace = typeof module !== 'undefined' && module.exports ? require('./trace.js') : null;
+const nGoal = typeof module !== 'undefined' && module.exports ? require('./contract.js') : null;
 
-const BN = gBoard ? gBoard.BOARD_N : BOARD_N;
-const GL = gBoard ? gBoard.GLASS : GLASS;
-const CENTER = gBoard ? gBoard.CENTER_CELL : CENTER_CELL;
-const EMIN = gBoard ? gBoard.EMITTER_MIN : EMITTER_MIN;
-const EMAX = gBoard ? gBoard.EMITTER_MAX : EMITTER_MAX;
-const EMID = gBoard ? gBoard.EMITTER_MID : EMITTER_MID;
-const MQ = gBoard ? gBoard.MODE_QUARTER : MODE_QUARTER;
-const MS = gBoard ? gBoard.MODE_SINGLE : MODE_SINGLE;
-const fCreate = gBoard ? gBoard.createPuzzle : createPuzzle;
-const fShift = gBoard ? gBoard.shiftRing : shiftRing;
-const fStep = gBoard ? gBoard.stepEmitter : stepEmitter;
-const fTrace = gTrace ? gTrace.traceLight : traceLight;
-const fCreateContract = gGoal ? gGoal.createContract : createContract;
-const fStrict = gGoal ? gGoal.createStrictContract : createStrictContract;
-const fEval = gGoal ? gGoal.evaluateContract : evaluateContract;
+const BN = nBoard ? nBoard.BOARD_N : BOARD_N;
+const GL = nBoard ? nBoard.GLASS : GLASS;
+const CENTER = nBoard ? nBoard.CENTER_CELL : CENTER_CELL;
+const EMIN = nBoard ? nBoard.EMITTER_MIN : EMITTER_MIN;
+const EMAX = nBoard ? nBoard.EMITTER_MAX : EMITTER_MAX;
+const EMID = nBoard ? nBoard.EMITTER_MID : EMITTER_MID;
+const MQ = nBoard ? nBoard.MODE_QUARTER : MODE_QUARTER;
+const MS = nBoard ? nBoard.MODE_SINGLE : MODE_SINGLE;
+const nCreate = nBoard ? nBoard.createPuzzle : createPuzzle;
+const nShift = nBoard ? nBoard.shiftRing : shiftRing;
+const nStep = nBoard ? nBoard.stepEmitter : stepEmitter;
+const nTraceLight = nTrace ? nTrace.traceLight : traceLight;
+const nCreateContract = nGoal ? nGoal.createContract : createContract;
+const nStrict = nGoal ? nGoal.createStrictContract : createStrictContract;
+const nEval = nGoal ? nGoal.evaluateContract : evaluateContract;
 
 function recvNow() {
-	return gTrace ? gTrace.traceRecv : traceRecv;
+	return nTrace ? nTrace.traceRecv : traceRecv;
 }
 
 // seedable PRNG (mulberry32) so batches replay identically
@@ -52,7 +52,7 @@ function randomGlass(rng) {
 
 // a witness pose: random glass plus a random emitter column
 function sampleWitness(rng, mode, corner) {
-	const p = fCreate(mode, corner);
+	const p = nCreate(mode, corner);
 	p.tiles.set(randomGlass(rng));
 	p.emitter = EMIN + randInt(rng, EMAX - EMIN + 1);
 	return p;
@@ -60,7 +60,7 @@ function sampleWitness(rng, mode, corner) {
 
 // border receivers actually hit by a pose (corners never absorb)
 function traceHits(tiles, emitter) {
-	fTrace(tiles, emitter);
+	nTraceLight(tiles, emitter);
 	const recv = recvNow();
 	const hits = [];
 	for (let cell = 0; cell < recv.length; cell++) {
@@ -80,7 +80,7 @@ function enlargePool(rng, witness, mode, corner, pool, samples) {
 	const seen = new Set();
 	for (const t of pool) seen.add(t.cell);
 	for (let s = 0; s < samples; s++) {
-		const p = fCreate(mode, corner);
+		const p = nCreate(mode, corner);
 		p.tiles.set(witness.tiles);
 		p.emitter = witness.emitter;
 		const steps = 1 + randInt(rng, 4);
@@ -100,7 +100,7 @@ function deriveContract(hits, difficulty, rng, witness, mode, corner, poolSample
 	if (difficulty === 2) {
 		const targets = hits.map(h => ({ cell: h.cell, mask: h.mask }));
 		try {
-			return fStrict(targets);
+			return nStrict(targets);
 		} catch (e) {
 			return null;
 		}
@@ -109,7 +109,7 @@ function deriveContract(hits, difficulty, rng, witness, mode, corner, poolSample
 	if (poolSamples > 0) enlargePool(rng, witness, mode, corner, pool, poolSamples);
 	const quota = difficulty === 0 ? Math.max(1, (hits.length + 1) >> 1) : hits.length;
 	try {
-		return fCreateContract(pool, quota, false);
+		return nCreateContract(pool, quota, false);
 	} catch (e) {
 		return null;
 	}
@@ -121,13 +121,13 @@ function randomMove(rng, mode, corner) {
 }
 
 function applyMove(p, m) {
-	if (m.e !== undefined) fStep(p, m.e);
-	else fShift(p, m.r, m.d);
+	if (m.e !== undefined) nStep(p, m.e);
+	else nShift(p, m.r, m.d);
 }
 
 // walk the witness forward with legal moves to get a non-winning start
 function scramble(rng, witness, mode, corner, length) {
-	const start = fCreate(mode, corner);
+	const start = nCreate(mode, corner);
 	start.tiles.set(witness.tiles);
 	start.emitter = witness.emitter;
 	const forward = [];
@@ -159,16 +159,16 @@ function sameTiles(a, b) {
 
 // replay the solution from start, then require the witness wins and the start does not
 function verifyCandidate(cand) {
-	const replay = fCreate(cand.mode, cand.corner);
+	const replay = nCreate(cand.mode, cand.corner);
 	replay.tiles.set(cand.start);
 	replay.emitter = cand.startEmitter;
 	for (const m of cand.solution) applyMove(replay, m);
 	if (!sameTiles(replay.tiles, cand.witness)) return false;
 	if (replay.emitter !== cand.witnessEmitter) return false;
-	fTrace(cand.witness, cand.witnessEmitter);
-	if (!fEval(cand.contract, recvNow()).won) return false;
-	fTrace(cand.start, cand.startEmitter);
-	if (fEval(cand.contract, recvNow()).won) return false;
+	nTraceLight(cand.witness, cand.witnessEmitter);
+	if (!nEval(cand.contract, recvNow()).won) return false;
+	nTraceLight(cand.start, cand.startEmitter);
+	if (nEval(cand.contract, recvNow()).won) return false;
 	return true;
 }
 
@@ -182,8 +182,8 @@ function makeTrivialPreset(mode, corner, difficulty) {
 	witness[CENTER] = 7;
 	start[CENTER] = 7 | 8;
 	const contract = difficulty === 2
-		? fStrict([{ cell: target, mask: 7 }])
-		: fCreateContract([{ cell: target, mask: 0 }], 1, false);
+		? nStrict([{ cell: target, mask: 7 }])
+		: nCreateContract([{ cell: target, mask: 0 }], 1, false);
 	return {
 		mode,
 		corner,
