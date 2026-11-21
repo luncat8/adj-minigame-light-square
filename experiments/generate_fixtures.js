@@ -1,10 +1,14 @@
-// owns: 0.4/0.8 generation acceptance — exact counts, profile, scramble policy, preset catalog, replay verification
+// owns: 0.4/0.8 generation acceptance — exact counts, profile, scramble policy, preset catalog, replay verification and measured selection
 // run: node experiments/generate_fixtures.js
 
 const board = require('../board.js');
 const presets = require('../presets.js');
 const gen = require('../generate.js');
 const c = require('./check.js');
+const fs = require('node:fs');
+const path = require('node:path');
+const vm = require('node:vm');
+const diff = require('../difficulty.js');
 
 const CELLS = board.GLASS * board.GLASS;
 const GMIN = board.GLASS_OFF;
@@ -66,6 +70,82 @@ c.eq(gen.generate(1, gen.MQ, false, 0.5).mirrorCount, gen.MIRRORS_DEFAULT, 'defa
 c.eq(gen.MIRRORS_DEFAULT, 11, 'default count is 11');
 c.eq(gen.generate(-1, gen.MQ, false, 0.5).seed, 0xffffffff, 'seed is unsigned 32-bit');
 
+for (const maxAttempts of [-1, 1.5, Infinity, NaN]) expectRange(() => gen.generate(1, 0, false, 0, 11, { maxAttempts }), 'invalid attempt budget ' + maxAttempts);
+for (const candidateCount of [0, -1, 1.5, Infinity, NaN]) expectRange(() => gen.generate(1, 0, false, 0, 11, { candidateCount }), 'invalid candidate budget ' + candidateCount);
+
+function selectionHarness(scores, extraDraws = 0, reject = false) {
+	const records = [];
+	let unchanged = true;
+	const sandbox = vm.createContext({
+		module: { exports: {} },
+		require(name) {
+			if (name !== './difficulty.js') return require(path.join(__dirname, '..', name));
+			return {
+				WALK_STEPS: diff.WALK_STEPS,
+				measureWalks(cand, rng) {
+					const before = JSON.stringify(cand);
+					const index = records.length;
+					const probe = gen.makeRng((cand.seed ^ 0x9e3779b9 ^ Math.imul(index + 1, 0x85ebca6b)) >>> 0);
+					const draws = Array.from({ length: 4 }, () => rng());
+					c.same(draws, Array.from({ length: 4 }, () => probe()), 'candidate RNG stream index=' + index);
+					const result = diff.measureWalks(cand, rng);
+					unchanged = unchanged && before === JSON.stringify(cand);
+					for (let i = 0; i < extraDraws; i++) rng();
+					if (scores) {
+						result.score = scores[index % scores.length];
+						result.winRate = 1 - result.score;
+						result.successes = result.winRate * result.walks;
+					}
+					records.push({ candidate: before, score: result.score });
+					return result;
+				}
+			};
+		}
+	});
+	vm.runInContext(fs.readFileSync(path.join(__dirname, '..', 'generate.js'), 'utf8'), sandbox);
+	if (reject) vm.runInContext('const originalVerify = verifyCandidate; verifyCandidate = cand => cand.preset && originalVerify(cand);', sandbox);
+	return { generate: sandbox.module.exports.generate, records, unchanged: () => unchanged };
+}
+
+const selected = selectionHarness([0.875, 0.75, 0.5, 0.5, 0.25, 0, 1, 0.125]);
+const batch = selected.generate(101, gen.MS, true, 0.5);
+c.eq(batch.verifiedCandidates, 8, 'default verified candidate limit');
+c.eq(selected.records.length, 8, 'measure exactly eight verified candidates');
+c.eq(batch.selectionScore, 0.5, 'closest score selected');
+c.eq(batch.targetScore, 0.20 + 0.65 * 0.5, 'initial target mapping');
+c.eq(JSON.stringify(batch.start), JSON.stringify(JSON.parse(selected.records[2].candidate).start), 'earliest tied candidate wins');
+c.eq(batch.attempts, JSON.parse(selected.records[7].candidate).attempts, 'selected result records total attempts, not its own attempt');
+c.ok(selected.unchanged(), 'measurement does not mutate candidate');
+const isolated = selectionHarness([0.875, 0.75, 0.5, 0.5, 0.25, 0, 1, 0.125], 2000);
+const isolatedBatch = isolated.generate(101, gen.MS, true, 0.5);
+c.eq(JSON.stringify(isolated.records), JSON.stringify(selected.records), 'extra measurement draws cannot change later construction or scores');
+c.same(isolatedBatch.start, batch.start, 'measurement draw count cannot change selected pose');
+const one = gen.generate(101, gen.MS, true, 0.5, 11, { candidateCount: 1 });
+const measured = diff.measureWalks(one, gen.makeRng(one.measurement.seed));
+c.eq(one.selectionScore, measured.score, 'real score recorded');
+c.eq(one.measurement.successes, measured.successes, 'success count recorded');
+c.eq(one.measurement.walks, 64, 'fixed walk budget');
+c.eq(one.measurement.steps, 20, 'fixed step budget');
+c.eq(one.measurement.winRate, measured.winRate, 'win rate recorded');
+c.ok(one.measurement.elapsedMs >= 0, 'measurement wall time reported');
+c.eq(one.verifiedCandidates, 1, 'custom candidate limit');
+const repeated = gen.generate(101, gen.MS, true, 0.5, 11, { candidateCount: 1 });
+const stable = cand => JSON.stringify({ ...cand, measurement: { ...cand.measurement, elapsedMs: 0 } });
+c.eq(stable(repeated), stable(one), 'result and metadata reproducible except wall time');
+c.eq(one.measurement.seed, (101 ^ 0x9e3779b9 ^ Math.imul(1, 0x85ebca6b)) >>> 0, 'measurement seed recorded');
+const partialHarness = selectionHarness([1, 0.5]);
+const partial = partialHarness.generate(101, gen.MS, true, 0.5, 11, { maxAttempts: 3 });
+c.eq(partial.attempts, 3, 'partial batch spends shared attempt limit');
+c.ok(partial.verifiedCandidates > 0 && partial.verifiedCandidates <= 3 && !partial.preset, 'partial batch selects verified candidate');
+c.eq(partial.verifiedCandidates, partialHarness.records.length, 'only verified candidates measured');
+c.eq(Math.abs(partial.selectionScore - partial.targetScore), Math.min(...partialHarness.records.map(r => Math.abs(r.score - partial.targetScore))), 'partial batch selects closest');
+const rejected = selectionHarness(null, 0, true);
+const exhausted = rejected.generate(101, gen.MS, true, 1, 49, { maxAttempts: 3 });
+c.eq(exhausted.attempts, 3, 'no verified candidate exhausts shared budget');
+c.eq(rejected.records.length, 0, 'rejected candidates not measured');
+c.ok(exhausted.preset && exhausted.verifiedCandidates === 0 && exhausted.selectionScore === null && exhausted.measurement === null, 'exhausted fallback explicitly unmeasured');
+c.ok(gen.verifyCandidate(exhausted) && exhausted.mirrorCount === 49, 'exhausted fallback verified at requested count');
+
 // profile anchors, interpolation and rounding
 const p0 = gen.profile(0);
 const p1 = gen.profile(1);
@@ -126,6 +206,7 @@ for (const mode of modes) {
 			}
 			const forced = gen.generate(5, mode, corner, 0.5, n, { maxAttempts: 0 });
 			if (!forced.preset || forced.attempts !== 0 || gen.countMirrors(forced.start) !== n || !gen.verifyCandidate(forced)) bad++;
+			if (forced.verifiedCandidates !== 0 || forced.selectionScore !== null || forced.measurement !== null || forced.targetScore !== 0.525) bad++;
 		}
 		c.eq(bad, 0, 'preset catalog ' + key(mode, corner, '1..49'));
 	}
@@ -152,6 +233,9 @@ for (const mode of modes) {
 						continue;
 					}
 					hits += cand.witnessHits.length;
+					if (cand.verifiedCandidates !== 8 || cand.attempts < 8 || cand.attempts > 400) bad++;
+					if (cand.selectionScore !== 1 - cand.measurement.successes / 64 || cand.measurement.walks !== 64 || cand.measurement.steps !== 20) bad++;
+					if (cand.targetScore !== 0.20 + 0.65 * d) bad++;
 					if (cand.contract.quota !== quotaFor(cand.witnessHits.length, prof)) bad++;
 					if (cand.contract.forbidOutside !== prof.strict) bad++;
 					if (cand.solution.length !== prof.scrambleMoves) bad++;

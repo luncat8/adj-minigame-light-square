@@ -1,4 +1,4 @@
-// owns: 0.5–0.6 integration smoke — boots the page under a stub DOM and drives real handlers
+// owns: integration smoke for game controls, pending/active settings, rim feedback and classic-script boot
 // run: node experiments/dom_smoke.js
 
 const fs = require('node:fs');
@@ -74,7 +74,8 @@ function pump(n, now) {
 const cellPx = 600 / render.RENDER_SPAN;
 const px = cell => (cell + render.RIM_PAD + 0.5) * cellPx;
 global.document.getElementById('rule-mode').value = '0';
-global.document.getElementById('band').value = '1';
+global.document.getElementById('difficulty').value = '25';
+global.document.getElementById('mirror-count').value = '11';
 
 require('../app.js');
 pump(1, 0);
@@ -101,6 +102,11 @@ c.ok(gen.countMirrors(live().puzzle.tiles) === 11 && gen.countMirrors(live().gen
 c.ok(/^\d+%$/.test(global.document.getElementById('readout-pct').textContent), 'percent readout set');
 c.eq(live().puzzle.mode, 0, 'boot used mode control');
 c.ok(!live().puzzle.corner, 'boot used corner control');
+c.eq(live().gen.difficulty, 0.25, 'boot uses default dial 25');
+c.eq($('mirror-count-label').textContent, 'Mirrors 11/49', 'default mirror label');
+c.eq($('difficulty-label').textContent, 'Difficulty 25/100', 'default difficulty label');
+c.ok($('readout-generation').textContent.includes('Active · Mirrors 11/49 · requested difficulty 25/100'), 'active summary shows generated settings');
+c.ok($('readout-generation').textContent.includes('walk escape ' + Math.round(live().gen.measurement.winRate * 100) + '%'), 'active summary reports measured win rate');
 c.eq(live().view.tiles, live().puzzle.tiles, 'view shows live tiles');
 c.eq(live().view.result, live().progress.result, 'view publishes live contract result');
 c.eq(render.renderPointToCell(5, 5), null, 'outer rim margin ignores board hit-test');
@@ -256,17 +262,104 @@ c.ok(sameArr(startTiles, live().puzzle.tiles), 'restart restores start tiles');
 c.ok(!live().progress.result.won, 'start pose not won after restart');
 c.ok(hasDiscovery(live().progress), 'discoveries survive restart');
 
-// generate applies controls and replaces the puzzle
+// Pending edits, including both event types, must not touch the active puzzle or preview trace.
+els['btn-preview'].fire('pointerenter');
+const pendingPuzzle = live().puzzle;
+const pendingProgress = live().progress;
+const pendingResult = live().progress.result;
+const pendingGen = live().gen;
+const pendingDiscoveries = Uint8Array.from(pendingProgress.discoveries);
+const pendingRecv = recvCopy();
+const activeSummary = $('readout-generation').textContent;
+const previewMessage = $('readout-msg').textContent;
 $('rule-mode').value = '1';
 $('rule-corner').checked = true;
-$('band').value = '0';
-els['band'].fire('input');
-c.eq(global.document.getElementById('band-label').textContent, game.gameBandLabel('0'), 'band label syncs');
+$('difficulty').value = '73';
+$('mirror-count').value = '5';
+for (const id of ['rule-mode', 'rule-corner', 'difficulty', 'mirror-count']) {
+	els[id].fire('input');
+	els[id].fire('change');
+}
+c.eq($('difficulty-label').textContent, 'Difficulty 73/100', 'pending dial label syncs');
+c.eq($('mirror-count-label').textContent, 'Mirrors 5/49', 'pending count label syncs');
+c.eq(live().puzzle, pendingPuzzle, 'pending settings preserve puzzle');
+c.eq(live().progress, pendingProgress, 'pending settings preserve progress');
+c.eq(live().progress.result, pendingResult, 'pending settings do not evaluate');
+c.eq(live().gen, pendingGen, 'pending settings preserve generation metadata');
+c.ok(game.gamePreviewing(), 'pending settings leave preview active');
+c.eq(live().view.tiles, pendingGen.witness, 'preview retains active witness');
+c.same(trace.traceRecv, pendingRecv, 'pending settings do not retrace preview');
+c.same(pendingProgress.discoveries, pendingDiscoveries, 'pending settings preserve discoveries');
+c.eq($('readout-generation').textContent, activeSummary, 'pending settings do not change active summary');
+c.eq($('readout-msg').textContent, previewMessage, 'pending settings preserve preview message');
+
 els['btn-generate'].fire('click');
-c.ok(live().progress !== progressRef, 'generate replaces progress');
-c.eq(live().puzzle.mode, 1, 'generate applies mode');
-c.ok(live().puzzle.corner, 'generate applies corner rule');
+c.ok(!game.gamePreviewing(), 'Generate replaces preview');
+c.ok(live().progress !== pendingProgress, 'Generate replaces progress');
+c.eq(live().puzzle.mode, 1, 'Generate applies mode');
+c.ok(live().puzzle.corner, 'Generate applies corner rule');
+c.eq(live().gen.difficulty, 0.73, 'Generate applies continuous dial');
+c.eq(gen.countMirrors(live().puzzle.tiles), 5, 'Generate applies count');
 c.eq(live().puzzle.emitter, live().puzzle.startEmitter, 'new puzzle starts committed');
+c.ok($('readout-generation').textContent.includes('Mirrors 5/49 · requested difficulty 73/100'), 'active summary changes on Generate');
+
+const editingRecv = recvCopy();
+const editingTiles = tilesCopy();
+const editingProgress = live().progress;
+const editingResult = live().progress.result;
+const editingSummary = $('readout-generation').textContent;
+$('rule-mode').value = '0';
+$('rule-corner').checked = false;
+for (const id of ['rule-mode', 'rule-corner']) {
+	els[id].fire('input');
+	els[id].fire('change');
+}
+c.eq(live().puzzle.mode, 1, 'mode edit does not change active move rules');
+c.ok(live().puzzle.corner, 'corner edit does not change active move rules');
+$('rule-mode').value = '1';
+$('rule-corner').checked = true;
+for (const [raw, expected] of [['', 11], [' ', 11], ['NaN', 11], ['Infinity', 11], ['0', 1], ['-8', 1], ['50', 49], ['7.6', 8]]) {
+	$('mirror-count').value = raw;
+	els['mirror-count'].fire('input');
+	c.eq($('mirror-count').value, raw, 'input allows unfinished count ' + raw);
+	c.eq($('mirror-count-label').textContent, 'Mirrors ' + expected + '/49', 'normalized pending count label ' + raw);
+	els['mirror-count'].fire('change');
+	c.eq(Number($('mirror-count').value), expected, 'change normalizes count ' + raw);
+	c.eq(live().gen.mirrorCount, 5, 'normalization does not generate ' + raw);
+}
+for (const [raw, expected] of [['', 25], ['NaN', 25], ['-1', 0], ['101', 100], ['42.6', 43]]) {
+	$('difficulty').value = raw;
+	els['difficulty'].fire('change');
+	c.eq(Number($('difficulty').value), expected, 'normalizes dial ' + raw);
+	c.eq($('difficulty-label').textContent, 'Difficulty ' + expected + '/100', 'normalized dial label ' + raw);
+}
+c.same(trace.traceRecv, editingRecv, 'normalizing pending settings does not retrace live pose');
+c.same(live().puzzle.tiles, editingTiles, 'pending edits do not change live tiles');
+c.eq(live().progress, editingProgress, 'pending edits do not clear progress');
+c.eq(live().progress.result, editingResult, 'pending edits do not reevaluate live pose');
+c.eq($('readout-generation').textContent, editingSummary, 'normalizing keeps active metadata');
+for (const n of [1, 5, 11, 49]) {
+	$('mirror-count').value = String(n);
+	$('difficulty').value = '25';
+	els['btn-generate'].fire('click');
+	c.eq(gen.countMirrors(live().puzzle.tiles), n, 'generated count ' + n);
+	c.eq(gen.countMirrors(live().gen.witness), n, 'witness count ' + n);
+	$('mirror-count').value = '23';
+	els['mirror-count'].fire('input');
+	game.gameMoveRing(0, 1);
+	els['btn-restart'].fire('click');
+	c.eq(gen.countMirrors(live().puzzle.tiles), n, 'restart preserves active count ' + n);
+	c.same(live().puzzle.tiles, live().gen.start, 'restart restores active start ' + n);
+	els['btn-preview'].fire('pointerenter');
+	c.eq(gen.countMirrors(live().view.tiles), n, 'preview preserves active count ' + n);
+	c.eq(live().view.tiles, live().gen.witness, 'preview ignores pending count ' + n);
+	els['btn-preview'].fire('pointerleave');
+}
+$('mirror-count').value = '';
+els['btn-generate'].fire('click');
+c.eq(live().gen.mirrorCount, 11, 'Generate normalizes count without change event');
+c.eq(Number($('mirror-count').value), 11, 'Generate restores normalized control');
+c.eq($('mirror-count-label').textContent, 'Mirrors 11/49', 'Generate restores pending label');
 
 before = tilesCopy();
 game.gameMoveRing(0, 1);
@@ -343,7 +436,8 @@ const vmCtx = vm.createContext({
 			if (!vmEls[id]) {
 				const el = makeEl(id);
 				if (id === 'rule-mode') el.value = '0';
-				if (id === 'band') el.value = '1';
+				if (id === 'difficulty') el.value = '25';
+				if (id === 'mirror-count') el.value = '11';
 				vmEls[id] = el;
 			}
 			return vmEls[id];
@@ -357,4 +451,12 @@ for (const script of scripts) {
 }
 c.eq(vmEls['canv'].width, 600, 'all 12 classic scripts boot cleanly in one shared lexical scope');
 
+c.ok(/id="mirror-count"[^>]*min="1"[^>]*max="49"[^>]*step="1"[^>]*value="11"/.test(html), 'count control HTML bounds and default');
+c.ok(/id="difficulty"[^>]*min="0"[^>]*max="100"[^>]*step="1"[^>]*value="25"/.test(html), 'dial HTML bounds and default');
+c.ok(!html.includes('id="band"'), 'obsolete band removed');
+vm.runInContext('startPuzzle(generate(7, 1, true, 1, 49, { maxAttempts: 0 }))', vmCtx);
+c.ok(vmEls['readout-generation'].textContent.includes('Mirrors 49/49 · requested difficulty 100/100 · preset · difficulty not matched · not measured'), 'preset UI explicitly reports unmatched and unmeasured');
+c.ok(!vmEls['readout-generation'].textContent.includes('walk escape'), 'unmeasured preset has no invented rate');
+c.ok(vm.runInContext('gameLive().gen.preset && countMirrors(gameLive().puzzle.tiles) === 49', vmCtx), 'classic preset retains requested count');
+c.eq(vm.runInContext('gameGenerationText({mirrorCount:11,difficulty:0.25,preset:false,measurement:null})', vmCtx), 'Active · Mirrors 11/49 · requested difficulty 25/100 · not measured', 'unmeasured non-preset wording');
 c.report('dom_smoke');

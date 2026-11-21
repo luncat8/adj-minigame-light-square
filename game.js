@@ -1,5 +1,5 @@
 // owns: live puzzle, progress, preview switching and readouts
-// edit for: game flow, band labels, readout wording
+// edit for: game flow, normalized generation settings and active readouts
 
 const gBoard = typeof module !== 'undefined' && module.exports ? require('./board.js') : null;
 const gTrace = typeof module !== 'undefined' && module.exports ? require('./trace.js') : null;
@@ -26,10 +26,6 @@ const fOverlay = gHints ? gHints.hintOverlay : hintOverlay;
 const fGenerate = gGen ? gGen.generate : generate;
 const fRenderView = gRender ? gRender.renderView : renderView;
 
-const BAND_LABELS = ['few targets · any color', 'most targets · any color', 'all targets · exact colors'];
-// band stops on the generator dial whose profile matches each label (0.8 profile anchors)
-const BAND_DIAL = [0, 1 / 3, 1];
-
 // trace buffers are lazy; read them at call time, never at load
 function recvBuf() {
 	return gTrace ? gTrace.traceRecv : traceRecv;
@@ -49,8 +45,25 @@ const live = {
 	view: { tiles: null, emitter: 0, seg: null, recv: null, overlays: null, result: null, previewing: false }
 };
 
-function gameBandLabel(band) {
-	return BAND_LABELS[band] || '';
+function gameControlValue(raw, fallback, min, max) {
+	const value = Number(raw);
+	return String(raw).trim() && Number.isFinite(value) ? Math.min(max, Math.max(min, Math.round(value))) : fallback;
+}
+
+function gameSettings() {
+	return {
+		mode: parseInt($('rule-mode').value, 10),
+		corner: $('rule-corner').checked,
+		mirrorCount: gameControlValue($('mirror-count').value, 11, 1, 49),
+		difficulty: gameControlValue($('difficulty').value, 25, 0, 100)
+	};
+}
+
+function gameGenerationText(cand) {
+	const settings = 'Active · Mirrors ' + cand.mirrorCount + '/49 · requested difficulty ' + Math.round(cand.difficulty * 100) + '/100';
+	if (cand.preset) return settings + ' · preset · difficulty not matched · not measured';
+	if (!cand.measurement) return settings + ' · not measured';
+	return settings + ' · walk escape ' + Math.round(cand.measurement.winRate * 100) + '%';
 }
 
 function gameInit() {
@@ -59,15 +72,16 @@ function gameInit() {
 
 // rules and difficulty apply only here; changing a control alone never replaces the puzzle
 function gameNew() {
-	const mode = parseInt($('rule-mode').value, 10);
-	const corner = $('rule-corner').checked;
-	const band = parseInt($('band').value, 10);
+	const settings = gameSettings();
+	$('mirror-count').value = settings.mirrorCount;
+	$('difficulty').value = settings.difficulty;
 	const seed = (Date.now() ^ (Math.random() * 0x7fffffff)) >>> 0;
-	startPuzzle(fGenerate(seed, mode, corner, BAND_DIAL[band]));
+	startPuzzle(fGenerate(seed, settings.mode, settings.corner, settings.difficulty / 100, settings.mirrorCount));
 }
 
 function startPuzzle(cand) {
 	live.gen = cand;
+	$('readout-generation').textContent = gameGenerationText(cand);
 	live.previewResult = null;
 	live.previewing = false;
 	const p = fCreate(cand.mode, cand.corner);
@@ -190,6 +204,8 @@ if (typeof module !== 'undefined') module.exports = {
 	gamePreviewEnd,
 	gamePreviewing,
 	gameRepublish,
-	gameBandLabel,
+	gameControlValue,
+	gameSettings,
+	gameGenerationText,
 	gameLive
 };

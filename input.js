@@ -1,5 +1,5 @@
-// owns: pointer, wheel, drag gestures and control button bindings
-// edit for: bindings, drag tuning, hit rules
+// owns: pointer, wheel, drag gestures, control bindings and pending-setting labels
+// edit for: bindings, pending labels, drag tuning and hit rules
 
 const iBoard = typeof module !== 'undefined' && module.exports ? require('./board.js') : null;
 const iGame = typeof module !== 'undefined' && module.exports ? require('./game.js') : null;
@@ -22,7 +22,6 @@ const gSetE = iGame ? iGame.gameSetEmitter : gameSetEmitter;
 const gPrevStart = iGame ? iGame.gamePreviewStart : gamePreviewStart;
 const gPrevEnd = iGame ? iGame.gamePreviewEnd : gamePreviewEnd;
 const gRepublish = iGame ? iGame.gameRepublish : gameRepublish;
-const gBand = iGame ? iGame.gameBandLabel : gameBandLabel;
 const iCell = iRender ? iRender.renderPointToCell : renderPointToCell;
 const iSelect = iRender ? iRender.renderSetSelection : renderSetSelection;
 
@@ -61,25 +60,29 @@ function inputInit(root) {
 	}
 	bindButton('btn-left', () => gStep(-1));
 	bindButton('btn-right', () => gStep(1));
-	bindButton('btn-generate', () => gNew());
+	bindButton('btn-generate', () => { inputPending(true); gNew(); });
 	bindButton('btn-restart', () => gRestart());
 	bindPreview();
 	bindHints();
-	const bandEl = $('band');
-	const syncBand = () => { $('band-label').textContent = gBand(bandEl.value); };
-	const regenSettings = () => { syncBand(); gNew(); };
-	$('rule-mode').addEventListener('change', regenSettings);
-	$('rule-mode').addEventListener('input', regenSettings);
-	$('rule-corner').addEventListener('change', regenSettings);
-	$('rule-corner').addEventListener('input', regenSettings);
-	bandEl.addEventListener('input', () => { syncBand(); gNew(); });
-	bandEl.addEventListener('change', regenSettings);
-	syncBand();
+	for (const id of ['mirror-count', 'difficulty']) {
+		$(id).addEventListener('input', () => inputPending(false));
+		$(id).addEventListener('change', () => inputPending(true));
+	}
+	inputPending(false);
 	select(0);
 	if (typeof window !== 'undefined') {
 		window.addEventListener('blur', () => gPrevEnd());
 		window.addEventListener('keydown', onKey);
 	}
+}
+
+function inputPending(normalize) {
+	const settings = iGame ? iGame.gameSettings() : gameSettings();
+	$('mirror-count-label').textContent = 'Mirrors ' + settings.mirrorCount + '/49';
+	$('difficulty-label').textContent = 'Difficulty ' + settings.difficulty + '/100';
+	if (!normalize) return;
+	$('mirror-count').value = settings.mirrorCount;
+	$('difficulty').value = settings.difficulty;
 }
 
 function onKey(e) {

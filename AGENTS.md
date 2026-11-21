@@ -57,20 +57,20 @@ getObj().data().action()
 	difficulty.js — owns fixed-budget walk score and bounded shortest-solve BFS diagnostics. edit for walk budget, action graph, BFS cap and turn tables.
 	hints.js — owns hint checkbox state and renderer-facing overlay selection. edit for visibility and preview suppression.
 	presets.js — owns compact count-preserving fallback templates and their decoding. edit for template codec; data is rebuilt by experiments/build_presets.js.
-	generate.js — owns solvable generation, dial profile, exact-count sampling, replay-verified witnesses and preset candidates. edit for sampling, profile anchors, scramble policy, fallback assembly.
+	generate.js — owns solvable generation, dial profile, walk-score selection and verified count-specific fallback. edit for sampling, profile anchors, scramble policy, candidate selection and metadata.
 	rim.js — owns out-of-border rim items (boiler, lamp, billboard, crystal, detector, rail). edit for rim visuals and state animations.
 	render.js — owns canvas painting of pose, animated beams, receivers, overlays and sizing. edit for board visuals, dash motion, overlay shapes.
-	game.js — owns live puzzle/progress state, preview switching and readouts. edit for game flow, band labels, wording.
-	input.js — owns pointer, wheel, drag gestures, ring keys and button bindings. edit for bindings, drag tuning, hit rules.
+	game.js — owns live puzzle/progress state, normalized generation settings, preview switching and active readouts. edit for game flow, settings normalization and wording.
+	input.js — owns pointer, wheel, drag gestures, ring keys, bindings and pending-setting labels. edit for bindings, pending labels, drag tuning and hit rules.
 	app.js — composer: root, $ and boot wiring only. implements nothing.
 	experiments/check.js — owns fixture assertion counters. edit for assertion helpers.
 	experiments/move_fixtures.js — owns 0.1 move invariant fixtures. edit for stride, corner, center, emitter cases.
 	experiments/trace_fixtures.js — owns 0.2 transport fixtures. edit for propagation cases.
 	experiments/contract_fixtures.js — owns 0.3 scoring, discovery, contractState, hint and script-order fixtures. edit for contract cases.
-	experiments/generate_fixtures.js — owns 0.4/0.8 generation acceptance. edit for count, profile, scramble, catalog and fallback cases.
+	experiments/generate_fixtures.js — owns 0.4/0.8 generation acceptance. edit for count, profile, scramble, selection, catalog and fallback cases.
 	experiments/difficulty_fixtures.js — owns 0.8 predicate agreement, walk, BFS and isolation acceptance. edit for metric and search cases.
 	experiments/build_presets.js — owns deterministic preset catalog construction. run to rewrite PRESET_CODES in presets.js.
-	experiments/dom_smoke.js — owns 0.5–0.6 integration and classic-scope smoke under a stub DOM. edit for boot, handler and rim-item coverage.
+	experiments/dom_smoke.js — owns integration and classic-scope smoke under a stub DOM. edit for boot, handlers, pending/active controls and rim-item coverage.
 - new code goes to its owner, never appended "because the file is already there". no owner exists -> new file + header + map entry.
 - file > ~500 lines = defect. split by feature within the same plan.
 - moves are pure moves: contiguous ranges, snap to enclosing declarations, no behavior change.
@@ -140,10 +140,11 @@ getObj().data().action()
 
 ## current workstream
 
-0.1–0.6 implemented. Play surface animates short directed beam dashes from emitter to receiver and paints reactive rim items in `RIM_PAD` margin (`render.js`), driven by `contractState(result)` without touching trace or scoring. `dom_smoke.js` covers handlers, rim states and shared classic-script scope; L2 = all five experiment scripts whenever `index.html` or load order changes.
-0.8 step 1 done: `generate(seed, mode, corner, difficulty, mirrorCount = 11)` samples exact counts via `profile()`; fallback is the verified per-count catalog in `presets.js`; the 3-stop band control maps to dials 0, 1/3, 1 until the 0.8 controls land.
-0.8 step 2 done: `contractWon` (contract.js), `measureWalks` and `shortestSolve` (difficulty.js, loaded but not yet called by generation).
-next: 0.8 step 3 (`0.8.0-plan.md`): 8-candidate selection by walk score with per-candidate measurement RNG streams and metadata. pending: 0.7 sound (`0.7.0-plan.md`). deferred: emitter width (`0.1.0-plan.md`), ring rotation transition polish.
+0.1–0.6 implemented. Play surface animates short directed beam dashes from emitter to receiver and paints reactive rim items in `RIM_PAD` margin (`render.js`), driven by `contractState(result)` without touching trace or scoring. `dom_smoke.js` covers handlers, rim states and shared classic-script scope; L2 = all six fixture scripts whenever `index.html` or load order changes.
+0.8 step 1 done: `generate(seed, mode, corner, difficulty, mirrorCount = 11)` samples exact counts via `profile()`; fallback is the verified per-count catalog in `presets.js`.
+0.8 steps 2–3 done: `contractWon` (contract.js), `measureWalks` and diagnostic `shortestSolve` (difficulty.js); generation selects the closest walk score from up to 8 verified candidates under one attempt budget, with isolated measurement streams and result metadata.
+0.8 step 4 done: exact-count and continuous difficulty controls default to 11/49 and 25/100; input.js updates pending labels without regeneration; game.js applies normalized settings only on Generate and reports active metadata/preset status.
+next: 0.8 step 5 (`0.8.0-plan.md`): training/held-out calibration, target tuning with evidence, performance and manual pass. pending: 0.7 sound (`0.7.0-plan.md`). deferred: emitter width (`0.1.0-plan.md`), ring rotation transition polish.
 
 ## housekeeping
 

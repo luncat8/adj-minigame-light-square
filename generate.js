@@ -1,5 +1,5 @@
-// owns: solvable generation, dial profile, exact-count sampling, replay-verified witnesses and preset candidates
-// edit for: sampling, profile anchors, scramble policy, fallback assembly
+// owns: solvable generation, dial profile, walk-score selection and verified count-specific fallback
+// edit for: sampling, profile anchors, scramble policy, candidate selection and metadata
 
 const nBoard = typeof module !== 'undefined' && module.exports ? require('./board.js') : null;
 const nTrace = typeof module !== 'undefined' && module.exports ? require('./trace.js') : null;
@@ -25,6 +25,7 @@ const nTemplate = nPresets ? nPresets.presetTemplate : presetTemplate;
 
 const MIRRORS_DEFAULT = 11;
 const GEN_ATTEMPTS = 400;
+const GEN_CANDIDATES = 8;
 // dial anchors at 0, 1/3, 2/3, 1: quota fraction, exact-color probability, scramble moves, eligible rings
 const PROFILE_ANCHORS = [
 	[0.50, 0, 3, 1],
@@ -231,6 +232,10 @@ function buildCandidate(req, witness, sc, contract, hits, preset, attempts) {
 		solution: invert(sc.forward),
 		preset,
 		attempts,
+		verifiedCandidates: 0,
+		selectionScore: null,
+		targetScore: 0.20 + 0.65 * req.difficulty,
+		measurement: null,
 		witnessHits: hits
 	};
 }
@@ -269,21 +274,56 @@ function presetFor(req, attempts) {
 	return buildCandidate(req, witness, { start, forward }, presetContract(hits[0], req.profile), hits, true, attempts);
 }
 
-// sample, derive, scramble, replay-verify; the count-matched preset only when bounded out
+function measureCandidate(cand, index) {
+	const metric = typeof module !== 'undefined' && module.exports ? require('./difficulty.js') : null;
+	const seed = (cand.seed ^ 0x9e3779b9 ^ Math.imul(index + 1, 0x85ebca6b)) >>> 0;
+	const began = Date.now();
+	const result = metric ? metric.measureWalks(cand, makeRng(seed)) : measureWalks(cand, makeRng(seed));
+	cand.selectionScore = result.score;
+	cand.measurement = {
+		seed,
+		successes: result.successes,
+		walks: result.walks,
+		steps: metric ? metric.WALK_STEPS : WALK_STEPS,
+		winRate: result.winRate,
+		elapsedMs: Date.now() - began
+	};
+}
+
+// Strict improvement preserves the earliest candidate on ties; timing never affects selection.
 function generate(seed, mode, corner, difficulty, mirrorCount = MIRRORS_DEFAULT, opts = {}) {
 	const req = genSettings(seed, mode, corner, difficulty, mirrorCount);
 	const prof = req.profile;
 	const maxAttempts = opts.maxAttempts ?? GEN_ATTEMPTS;
+	const candidateCount = opts.candidateCount ?? GEN_CANDIDATES;
+	if (!Number.isInteger(maxAttempts) || maxAttempts < 0) throw new RangeError('maxAttempts must be a nonnegative integer');
+	if (!Number.isInteger(candidateCount) || candidateCount < 1) throw new RangeError('candidateCount must be a positive integer');
 	const rng = makeRng(req.seed);
-	for (let attempt = 1; attempt <= maxAttempts; attempt++) {
+	let best = null;
+	let distance = Infinity;
+	let attempts = 0;
+	let verified = 0;
+	while (attempts < maxAttempts && verified < candidateCount) {
+		attempts++;
 		const witness = sampleWitness(rng, mode, corner, mirrorCount);
 		const hits = traceHits(witness.tiles, witness.emitter);
 		const contract = deriveContract(hits, prof, rng);
 		const sc = scramble(rng, witness, eligibleRings(rng, prof.rings), prof.scrambleMoves);
-		const cand = buildCandidate(req, witness, sc, contract, hits, false, attempt);
-		if (verifyCandidate(cand)) return cand;
+		const cand = buildCandidate(req, witness, sc, contract, hits, false, attempts);
+		if (!verifyCandidate(cand)) continue;
+		measureCandidate(cand, verified++);
+		const delta = Math.abs(cand.selectionScore - cand.targetScore);
+		if (delta >= distance) continue;
+		best = cand;
+		distance = delta;
 	}
-	return presetFor(req, maxAttempts);
+	if (!best) {
+		best = presetFor(req, attempts);
+		if (!verifyCandidate(best)) throw new Error('invalid count-specific preset');
+	}
+	best.attempts = attempts;
+	best.verifiedCandidates = verified;
+	return best;
 }
 
 if (typeof module !== 'undefined') module.exports = {
