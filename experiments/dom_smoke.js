@@ -114,15 +114,62 @@ for (let i = 0; i < ring0.length; i++) live().puzzle.tiles[ring0[i]] = (i % 7) +
 const ring2 = board.RING_CELLS[2];
 for (let i = 0; i < ring2.length; i++) live().puzzle.tiles[ring2[i]] = ((i + 2) % 7) + 1;
 
-// explicit button works immediately on boot (ring 0 preselected)
+// Each button and shortcut addresses its own square, independently of hover selection.
+for (let ring = 0; ring < 3; ring++) {
+	for (let i = 0; i < board.RING_CELLS[ring].length; i++) live().puzzle.tiles[board.RING_CELLS[ring][i]] = (i % 7) + 1;
+}
+live().puzzle.tiles[board.CENTER_CELL] = 7;
+function expectMove(action, ring, dir, label) {
+	const expected = { tiles: tilesCopy(), mode: live().puzzle.mode, corner: live().puzzle.corner };
+	board.shiftRing(expected, ring, dir);
+	action();
+	c.ok(sameArr(expected.tiles, live().puzzle.tiles), label);
+}
+const keys = [['1', '2'], ['q', 'w'], ['a', 's'], ['z', 'x']];
+for (let ring = 0; ring < 4; ring++) {
+	for (let col = 0; col < 2; col++) {
+		const dir = col ? 1 : -1;
+		const id = 'btn-' + (col ? 'cw-' : 'ccw-') + ring;
+		expectMove(() => els[id].fire('click'), ring, dir, id + ' moves its own square');
+		let prevented = false;
+		expectMove(() => winHandlers.keydown[0]({ key: keys[ring][col], preventDefault() { prevented = true; } }), ring, dir, 'key ' + keys[ring][col] + ' moves its own square');
+		c.ok(prevented, 'shortcut prevents browser default');
+	}
+}
 let before = tilesCopy();
-els['btn-cw'].fire('click');
-c.ok(!sameArr(before, live().puzzle.tiles), 'cw button works on initial selection');
+winHandlers.keydown[0]({ key: 'q', target: { tagName: 'INPUT' } });
+winHandlers.keydown[0]({ key: 'w', ctrlKey: true });
+c.ok(sameArr(before, live().puzzle.tiles), 'shortcuts ignore form controls and modifiers');
 
-// wheel steps the hovered ring and selects it
+// Wheel magnitudes and delta modes do not multiply steps; bursts coalesce, reversals remain responsive.
+let wheelNow = 1000;
+global.performance = { now: () => wheelNow };
+function wheel(deltaY, x, y, deltaMode = 0) {
+	let prevented = false;
+	canv.fire('wheel', { deltaY, deltaMode, clientX: px(x), clientY: px(y), preventDefault() { prevented = true; } });
+	return prevented;
+}
+expectMove(() => wheel(-1200, 7, 4), 0, 1, 'large wheel delta makes one quarter turn');
 before = tilesCopy();
-canv.fire('wheel', { deltaY: -120, clientX: px(7), clientY: px(4) });
-c.ok(!sameArr(before, live().puzzle.tiles), 'wheel steps ring 0');
+wheelNow += 10;
+c.ok(wheel(-3, 7, 4, 1), 'coalesced wheel still prevents page scroll');
+c.ok(sameArr(before, live().puzzle.tiles), 'same-direction burst does not rotate again');
+wheelNow += 50;
+expectMove(() => wheel(-1, 7, 4, 1), 0, 1, 'next wheel step after cooldown');
+expectMove(() => wheel(500, 7, 4), 0, -1, 'wheel reversal is immediate');
+expectMove(() => wheel(500, 7, 5), 1, -1, 'new wheel target is immediate');
+before = tilesCopy();
+c.ok(wheel(0, 7, 5), 'zero vertical delta still prevents scrolling over a square');
+c.ok(sameArr(before, live().puzzle.tiles), 'zero vertical delta does not rotate');
+c.ok(!wheel(5, 0, 0), 'wheel outside controls is not intercepted');
+live().puzzle.emitter = 7;
+c.ok(wheel(-1000, 7, 14), 'emitter wheel prevents page scroll');
+c.eq(live().puzzle.emitter, 8, 'emitter wheel moves one cell');
+wheelNow += 10;
+wheel(-1000, 7, 14);
+c.eq(live().puzzle.emitter, 8, 'emitter wheel burst is coalesced');
+wheel(1000, 7, 14);
+c.eq(live().puzzle.emitter, 7, 'emitter reversal is immediate');
 canv.fire('pointermove', { pointerId: 9, clientX: px(7), clientY: px(4) });
 pump(1, 200);
 
@@ -146,12 +193,6 @@ const afterCenter = tilesCopy();
 canv.fire('pointermove', { pointerId: 4, clientX: endX, clientY: endY });
 canv.fire('pointerup', { pointerId: 4, clientX: endX, clientY: endY });
 c.ok(sameArr(afterCenter, live().puzzle.tiles), 'pointermove after center click leaves outer rings untouched');
-
-// keyboard 1-4 selects ring for explicit buttons
-winHandlers.keydown[0]({ key: '3' });
-before = tilesCopy();
-els['btn-cw'].fire('click');
-c.ok(!sameArr(before, live().puzzle.tiles), 'key 3 selects ring 2 for cw button');
 
 // emitter drag along the bottom border
 canv.fire('pointerdown', { pointerId: 2, clientX: px(5), clientY: px(14) });
@@ -181,6 +222,9 @@ els['btn-preview'].fire('pointerenter');
 const suspended = tilesCopy();
 game.gameMoveRing(0, 1);
 c.ok(sameArr(suspended, live().puzzle.tiles), 'moves suspended during preview');
+els['btn-cw-0'].fire('click');
+winHandlers.keydown[0]({ key: 'w', preventDefault() {} });
+c.ok(sameArr(suspended, live().puzzle.tiles), 'button and shortcut moves suspended during preview');
 els['btn-preview'].fire('pointerup');
 c.ok(!game.gamePreviewing(), 'release ends preview');
 
@@ -226,6 +270,10 @@ before = tilesCopy();
 game.gameMoveRing(0, 1);
 els['btn-restart'].fire('click');
 c.ok(sameArr(before, live().puzzle.tiles), 'restart button restores start');
+
+for (let i = 0; i < ring0.length; i++) live().puzzle.tiles[ring0[i]] = (i % 7) + 1;
+wheelNow += 60;
+expectMove(() => wheel(-900, 7, 4), 0, 1, 'large wheel delta makes one single-slot turn');
 
 // 0.6 acceptance: drive idle -> partial -> met via explicit controls with all hints unchecked
 $('hint-current').checked = false;

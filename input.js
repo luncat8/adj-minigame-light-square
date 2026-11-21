@@ -31,6 +31,11 @@ let cellRing = null;
 let selected = -1;
 const gest = { pointer: -1, kind: '', ring: -1, cx: 0, cy: 0, prev: 0, acc: 0 };
 const iPt = { x: 0, y: 0 };
+const iKeys = ['1', '2', 'q', 'w', 'a', 's', 'z', 'x'];
+const iWheelCooldown = 60;
+let iWheelTime = -Infinity;
+let iWheelDir = 0;
+let iWheelTarget = -1;
 
 function inputInit(root) {
 	iRoot = root;
@@ -50,8 +55,10 @@ function inputInit(root) {
 	root.addEventListener('pointerup', onUp);
 	root.addEventListener('pointercancel', onUp);
 	root.addEventListener('wheel', onWheel, { passive: false });
-	bindButton('btn-cw', () => { if (selected >= 0) gMove(selected, 1); });
-	bindButton('btn-ccw', () => { if (selected >= 0) gMove(selected, -1); });
+	for (let ring = 0; ring < 4; ring++) {
+		bindButton('btn-ccw-' + ring, () => rotate(ring, -1));
+		bindButton('btn-cw-' + ring, () => rotate(ring, 1));
+	}
 	bindButton('btn-left', () => gStep(-1));
 	bindButton('btn-right', () => gStep(1));
 	bindButton('btn-generate', () => gNew());
@@ -72,9 +79,16 @@ function inputInit(root) {
 function onKey(e) {
 	if (e.ctrlKey || e.metaKey || e.altKey) return;
 	const tag = e.target && e.target.tagName;
-	if (tag === 'INPUT' || tag === 'SELECT') return;
-	const ring = e.key >= '1' && e.key <= '4' ? e.key.charCodeAt(0) - 49 : -1;
-	if (ring >= 0) select(ring);
+	if (tag === 'INPUT' || tag === 'SELECT' || tag === 'TEXTAREA' || (e.target && e.target.isContentEditable)) return;
+	const key = iKeys.indexOf(e.key.toLowerCase());
+	if (key < 0) return;
+	e.preventDefault();
+	rotate(Math.floor(key / 2), key % 2 ? 1 : -1);
+}
+
+function rotate(ring, dir) {
+	select(ring);
+	gMove(ring, dir);
 }
 
 function bindButton(id, fn) {
@@ -187,16 +201,21 @@ function onUp(e) {
 function onWheel(e) {
 	const cell = iCell(e.clientX, e.clientY);
 	if (!cell) return;
-	if (cell.row === iN - 1 && cell.col >= iMin && cell.col <= iMax) {
-		e.preventDefault();
-		gStep(e.deltaY < 0 ? 1 : -1);
-		return;
-	}
-	const ring = ringAt(cell);
-	if (ring < 0) return;
+	const emitter = cell.row === iN - 1 && cell.col >= iMin && cell.col <= iMax;
+	const ring = emitter ? -1 : ringAt(cell);
+	if (!emitter && ring < 0) return;
 	e.preventDefault();
-	select(ring);
-	gMove(ring, e.deltaY < 0 ? 1 : -1);
+	if (!e.deltaY) return;
+	const dir = e.deltaY < 0 ? 1 : -1;
+	const target = emitter ? 4 : ring;
+	const now = performance.now();
+	// Wheel delta size follows OS settings; coalesce bursts, but allow reversals and new targets immediately.
+	if (target === iWheelTarget && dir === iWheelDir && now - iWheelTime < iWheelCooldown) return;
+	iWheelTarget = target;
+	iWheelDir = dir;
+	iWheelTime = now;
+	if (emitter) gStep(dir);
+	else rotate(ring, dir);
 }
 
 function canvasPoint(e) {
