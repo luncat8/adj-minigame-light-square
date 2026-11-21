@@ -9,12 +9,14 @@ function readHintControls() {
 	};
 }
 
+// one scratch object: consumers read the fields immediately and never retain overlays
+const overlayScratch = { current: null, discoveries: null, targets: null };
+
 function hintOverlay(progress, controls, preview) {
-	return {
-		current: !preview && controls.current && progress.result ? progress.result.status : null,
-		discoveries: !preview && controls.discoveries ? progress.discoveries : null,
-		targets: !preview && controls.targets ? progress.contract.requirements : null
-	};
+	overlayScratch.current = !preview && controls.current && progress.result ? progress.result.status : null;
+	overlayScratch.discoveries = !preview && controls.discoveries ? progress.discoveries : null;
+	overlayScratch.targets = !preview && controls.targets ? progress.contract.requirements : null;
+	return overlayScratch;
 }
 
 if (typeof module !== 'undefined') module.exports = { readHintControls, hintOverlay };
