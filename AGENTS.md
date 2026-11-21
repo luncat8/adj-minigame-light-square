@@ -58,16 +58,22 @@ getObj().data().action()
 - relevance is decided from head -12. never read a full file just to learn what it is.
 
 - keep this map updated when ownership changes:
-	index.html — owns canvas root and script load order. edit for load order.
+	index.html — owns canvas root, controls and script load order. edit for load order and markup.
 	board.js — owns geometry, ring strides, player moves, emitter. edit for stride table, corner rule, center flip, emitter range.
 	trace.js — owns light transport trace and buffers. edit for propagation rules, mirror splits.
 	contract.js — owns secret contracts, scoring and discovery history. edit for quotas, colors and feedback.
 	hints.js — owns hint checkbox state and renderer-facing overlay selection. edit for visibility and preview suppression.
 	generate.js — owns solvable generation, replay-verified witnesses and presets. edit for sampling, band mapping, scramble policy, fallback.
+	render.js — owns canvas painting of pose, beams, receivers, overlays and sizing. edit for visuals, glow, overlay shapes.
+	game.js — owns live puzzle/progress state, preview switching and readouts. edit for game flow, band labels, wording.
+	input.js — owns pointer, wheel, drag gestures and button bindings. edit for bindings, drag tuning, hit rules.
+	app.js — composer: root, $ and boot wiring only. implements nothing.
 	experiments/check.js — owns fixture assertion counters. edit for assertion helpers.
 	experiments/move_fixtures.js — owns 0.1 move invariant fixtures. edit for stride, corner, center, emitter cases.
 	experiments/trace_fixtures.js — owns 0.2 transport fixtures. edit for propagation cases.
-	experiments/contract_fixtures.js — owns 0.3 scoring, discovery and hint fixtures. edit for contract cases.
+	experiments/contract_fixtures.js — owns 0.3 scoring, discovery, hint and script-order fixtures. edit for contract cases.
+	experiments/generate_fixtures.js — owns 0.4 generation acceptance. edit for band and fallback cases.
+	experiments/dom_smoke.js — owns 0.5 integration smoke under a stub DOM. edit for boot and handler coverage.
 - new code goes to its owner, never appended "because the file is already there". no owner exists -> new file + header + map entry.
 - file > ~500 lines = defect. split by feature within the same plan.
 - moves are pure moves: contiguous ranges, snap to enclosing declarations, no behavior change.
@@ -139,9 +145,8 @@ getObj().data().action()
 
 [rewritten each phase, never accumulated. only constraints that matter right now. delete lines that stopped mattering.]
 
-plan-order implementation: 0.1–0.4 rule layers done; 0.4 generation node-verified by experiments/generate_fixtures.js.
-index.html or load-order edits -> L2 = all four fixture scripts. next: 0.5 integrate generate.js into the page.
-0.5 adds generate.js to load order, wires Generate/restart and previews the witness; the current canvas has no play surface.
+plan-order implementation: 0.1–0.5 done. 0.5 wired the page: render/game/input/app compose the play surface; dom_smoke covers integration; L2 = all five experiment scripts whenever index.html or load order changes.
+next: 0.6 rim items — draw them in render.js's border-receiver pass, states keyed to the live 0.3 result (idle / partial M<K / met M>=K, E=0), never feeding back into trace or scoring.
 
 ## housekeeping
 
