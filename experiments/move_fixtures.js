@@ -182,6 +182,12 @@ board.stepEmitter(em, 1);
 c.eq(em.emitter, 13, 'emitter high stop');
 board.stepEmitter(em, -1);
 c.eq(em.emitter, 12, 'emitter steps back');
+board.setEmitter(em, 5);
+c.eq(em.emitter, 5, 'emitter set');
+board.setEmitter(em, 99);
+c.eq(em.emitter, 13, 'set clamps high');
+board.setEmitter(em, 0);
+c.eq(em.emitter, 1, 'set clamps low');
 
 const rs = puzzle(board.MODE_SINGLE, true);
 rs.tiles[0] = 0;
