@@ -63,6 +63,7 @@ getObj().data().action()
 	trace.js — owns light transport trace and buffers. edit for propagation rules, mirror splits.
 	contract.js — owns secret contracts, scoring and discovery history. edit for quotas, colors and feedback.
 	hints.js — owns hint checkbox state and renderer-facing overlay selection. edit for visibility and preview suppression.
+	generate.js — owns solvable generation, replay-verified witnesses and presets. edit for sampling, band mapping, scramble policy, fallback.
 	experiments/check.js — owns fixture assertion counters. edit for assertion helpers.
 	experiments/move_fixtures.js — owns 0.1 move invariant fixtures. edit for stride, corner, center, emitter cases.
 	experiments/trace_fixtures.js — owns 0.2 transport fixtures. edit for propagation cases.
@@ -138,9 +139,9 @@ getObj().data().action()
 
 [rewritten each phase, never accumulated. only constraints that matter right now. delete lines that stopped mattering.]
 
-plan-order implementation: 0.1–0.3 rule layers done, experiments/ fixtures are L1 for their owners.
-index.html or load-order edits -> L2 = all three fixture scripts. next: 0.4 generation.
-0.5 integrates contract progress and renders hint overlays; the current canvas has no play surface.
+plan-order implementation: 0.1–0.4 rule layers done; 0.4 generation node-verified by experiments/generate_fixtures.js.
+index.html or load-order edits -> L2 = all four fixture scripts. next: 0.5 integrate generate.js into the page.
+0.5 adds generate.js to load order, wires Generate/restart and previews the witness; the current canvas has no play surface.
 
 ## housekeeping
 
