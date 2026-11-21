@@ -112,7 +112,10 @@ const batch = selected.generate(101, gen.MS, true, 0.5);
 c.eq(batch.verifiedCandidates, 8, 'default verified candidate limit');
 c.eq(selected.records.length, 8, 'measure exactly eight verified candidates');
 c.eq(batch.selectionScore, 0.5, 'closest score selected');
-c.eq(batch.targetScore, 0.20 + 0.65 * 0.5, 'initial target mapping');
+c.eq(batch.targetScore, gen.targetScore(0.5), 'selection uses the target mapping');
+c.eq(gen.targetScore(0), 0.2, 'target low anchor');
+c.eq(gen.targetScore(1), 1, 'target high anchor selects the hardest candidate');
+c.eq(gen.generate(101, gen.MS, true, 0.5, 11, { candidateCount: 1, target: 0.9 }).targetScore, 0.9, 'calibration target override');
 c.eq(JSON.stringify(batch.start), JSON.stringify(JSON.parse(selected.records[2].candidate).start), 'earliest tied candidate wins');
 c.eq(batch.attempts, JSON.parse(selected.records[7].candidate).attempts, 'selected result records total attempts, not its own attempt');
 c.ok(selected.unchanged(), 'measurement does not mutate candidate');
@@ -206,7 +209,7 @@ for (const mode of modes) {
 			}
 			const forced = gen.generate(5, mode, corner, 0.5, n, { maxAttempts: 0 });
 			if (!forced.preset || forced.attempts !== 0 || gen.countMirrors(forced.start) !== n || !gen.verifyCandidate(forced)) bad++;
-			if (forced.verifiedCandidates !== 0 || forced.selectionScore !== null || forced.measurement !== null || forced.targetScore !== 0.525) bad++;
+			if (forced.verifiedCandidates !== 0 || forced.selectionScore !== null || forced.measurement !== null || forced.targetScore !== gen.targetScore(0.5)) bad++;
 		}
 		c.eq(bad, 0, 'preset catalog ' + key(mode, corner, '1..49'));
 	}
@@ -235,7 +238,7 @@ for (const mode of modes) {
 					hits += cand.witnessHits.length;
 					if (cand.verifiedCandidates !== 8 || cand.attempts < 8 || cand.attempts > 400) bad++;
 					if (cand.selectionScore !== 1 - cand.measurement.successes / 64 || cand.measurement.walks !== 64 || cand.measurement.steps !== 20) bad++;
-					if (cand.targetScore !== 0.20 + 0.65 * d) bad++;
+					if (cand.targetScore !== gen.targetScore(d)) bad++;
 					if (cand.contract.quota !== quotaFor(cand.witnessHits.length, prof)) bad++;
 					if (cand.contract.forbidOutside !== prof.strict) bad++;
 					if (cand.solution.length !== prof.scrambleMoves) bad++;
