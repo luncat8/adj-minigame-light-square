@@ -10,6 +10,7 @@ const trace = require('../trace.js');
 const goal = require('../contract.js');
 const render = require('../render.js');
 const game = require('../game.js');
+const gen = require('../generate.js');
 
 const drawnTexts = [];
 const dashOffsets = [];
@@ -96,6 +97,7 @@ function hasDiscovery(progress) {
 // boot + animated beam dash progression
 c.ok(!!(live().puzzle && live().progress && live().gen), 'boot generated a puzzle');
 c.ok(!live().progress.result.won, 'start pose not already won');
+c.ok(gen.countMirrors(live().puzzle.tiles) === 11 && gen.countMirrors(live().gen.witness) === 11, 'boot puzzle has the default 11 mirrors');
 c.ok(/^\d+%$/.test(global.document.getElementById('readout-pct').textContent), 'percent readout set');
 c.eq(live().puzzle.mode, 0, 'boot used mode control');
 c.ok(!live().puzzle.corner, 'boot used corner control');
@@ -323,7 +325,7 @@ els['hint-targets'].fire('change');
 c.ok(!live().view.overlays.targets, 'targets overlay hides');
 c.eq(goal.contractState(live().view.result), goal.CONTRACT_MATCH, 'hint hide keeps item state');
 
-// classic-script lexical scope check: load all 9 scripts in index.html order in one shared vm context
+// classic-script lexical scope check: load all index.html scripts in index.html order in one shared vm context
 const rootDir = path.join(__dirname, '..');
 const html = fs.readFileSync(path.join(rootDir, 'index.html'), 'utf8');
 const scripts = Array.from(html.matchAll(/<script src="([^"]+)"><\/script>/g), m => m[1]);
@@ -353,6 +355,6 @@ const vmCtx = vm.createContext({
 for (const script of scripts) {
 	vm.runInContext(fs.readFileSync(path.join(rootDir, script), 'utf8'), vmCtx, { filename: script });
 }
-c.eq(vmEls['canv'].width, 600, 'all 10 classic scripts boot cleanly in one shared lexical scope');
+c.eq(vmEls['canv'].width, 600, 'all 11 classic scripts boot cleanly in one shared lexical scope');
 
 c.report('dom_smoke');
