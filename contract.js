@@ -31,6 +31,28 @@ function createStrictContract(targets) {
 	return createContract(targets, targets.length, true);
 }
 
+function contractCellMatch(required, light) {
+	return required === CONTRACT_ANY || required === light;
+}
+
+function contractMet(contract, matches, extras) {
+	return matches >= contract.quota && extras === 0;
+}
+
+// allocation-free twin of evaluateContract(...).won for search and measurement loops
+function contractWon(contract, recv) {
+	const requirements = contract.requirements;
+	let matches = 0;
+	for (let cell = 0; cell < recv.length; cell++) {
+		const light = recv[cell];
+		if (!light) continue;
+		const required = requirements[cell];
+		if (required) matches += contractCellMatch(required, light) ? 1 : 0;
+		else if (contract.forbidOutside) return false;
+	}
+	return contractMet(contract, matches, 0);
+}
+
 function evaluateContract(contract, recv) {
 	if (recv.length !== contract.requirements.length) throw new RangeError('receiver buffer size mismatch');
 	const status = new Uint8Array(recv.length);
@@ -49,7 +71,7 @@ function evaluateContract(contract, recv) {
 			unlit++;
 			continue;
 		}
-		if (required === CONTRACT_ANY || required === light) {
+		if (contractCellMatch(required, light)) {
 			status[cell] = CONTRACT_MATCH;
 			matches++;
 		} else {
@@ -58,12 +80,13 @@ function evaluateContract(contract, recv) {
 		}
 	}
 	const unmet = matches < contract.quota;
+	const won = contractMet(contract, matches, extras);
 	return {
 		status,
 		matches,
 		extras,
 		percent: Math.floor(100 * Math.min(matches, contract.quota) / (contract.quota + extras)),
-		won: !unmet && extras === 0,
+		won,
 		wrongColor: unmet && wrong > 0,
 		missingLight: unmet && unlit > 0,
 		forbiddenLight: extras > 0
@@ -98,6 +121,7 @@ if (typeof module !== 'undefined') module.exports = {
 	createContract,
 	createStrictContract,
 	evaluateContract,
+	contractWon,
 	contractState,
 	createContractProgress,
 	updateContractProgress
