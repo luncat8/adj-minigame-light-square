@@ -60,3 +60,15 @@ laser width from thin (visually) to 3 cells (light in all 3).
 
 make some out of border of the square - interesting items that will be activated once proper laser light on it. to visually make interesting goal to reach. Examples: long tube with boiling water, lamp, detector, magic crystal, neon chinese billboard.
 
+## low priority
+
+### sound generator and settings panel to it
+
+make some interesting and good sounding synth, that react on current laser configuration.
+
+example:
+imagine light particle pass from laser emoter and slowly fly - every time it hit obstacle it sound depends on what happens: is sound pass, reflected, in what direction.
+
+you can use stereo, phase, tone, volume, low-freq envelope, other good sounding techniques to produce responsive, interesting soundscape.
+
+because this difficult to predict what will work - better make some variants to choose.
