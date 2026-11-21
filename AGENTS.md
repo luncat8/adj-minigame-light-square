@@ -59,7 +59,7 @@ getObj().data().action()
 	rim.js — owns out-of-border rim items (boiler, lamp, billboard, crystal, detector, rail). edit for rim visuals and state animations.
 	render.js — owns canvas painting of pose, animated beams, receivers, overlays and sizing. edit for board visuals, dash motion, overlay shapes.
 	game.js — owns live puzzle/progress state, preview switching and readouts. edit for game flow, band labels, wording.
-	input.js — owns pointer, wheel, drag gestures, ring keys and button bindings. edit for bindings, drag tuning, hit rules.
+	input.js — owns pointer, wheel detent quantizing, drag gestures and button bindings. edit for bindings, drag and wheel tuning, hit rules.
 	app.js — composer: root, $ and boot wiring only. implements nothing.
 	experiments/check.js — owns fixture assertion counters. edit for assertion helpers.
 	experiments/move_fixtures.js — owns 0.1 move invariant fixtures. edit for stride, corner, center, emitter cases.
