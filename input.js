@@ -1,5 +1,5 @@
-// owns: pointer, wheel, drag gestures, control bindings and pending-setting labels
-// edit for: bindings, pending labels, drag tuning and hit rules
+// owns: pointer, wheel, drag gestures, control bindings and setting labels
+// edit for: bindings, setting labels, regenerate triggers, drag tuning and hit rules
 
 const iBoard = typeof module !== 'undefined' && module.exports ? require('./board.js') : null;
 const iGame = typeof module !== 'undefined' && module.exports ? require('./game.js') : null;
@@ -60,15 +60,14 @@ function inputInit(root) {
 	}
 	bindButton('btn-left', () => gStep(-1));
 	bindButton('btn-right', () => gStep(1));
-	bindButton('btn-generate', () => { inputPending(true); gNew(); });
+	bindButton('btn-generate', regenerate);
 	bindButton('btn-restart', () => gRestart());
 	bindPreview();
 	bindHints();
-	for (const id of ['mirror-count', 'difficulty']) {
-		$(id).addEventListener('input', () => inputPending(false));
-		$(id).addEventListener('change', () => inputPending(true));
-	}
-	inputPending(false);
+	// generation settings regenerate on commit (change); input only previews the label while typing or dragging
+	for (const id of ['mirror-count', 'difficulty']) $(id).addEventListener('input', settingLabels);
+	for (const id of ['rule-mode', 'rule-corner', 'mirror-count', 'difficulty']) $(id).addEventListener('change', regenerate);
+	settingLabels();
 	select(0);
 	if (typeof window !== 'undefined') {
 		window.addEventListener('blur', () => gPrevEnd());
@@ -76,13 +75,16 @@ function inputInit(root) {
 	}
 }
 
-function inputPending(normalize) {
+// gameNew writes normalized values back to the controls; labels then read them
+function regenerate() {
+	gNew();
+	settingLabels();
+}
+
+function settingLabels() {
 	const settings = iGame ? iGame.gameSettings() : gameSettings();
 	$('mirror-count-label').textContent = 'Mirrors ' + settings.mirrorCount + '/49';
 	$('difficulty-label').textContent = 'Difficulty ' + settings.difficulty + '/100';
-	if (!normalize) return;
-	$('mirror-count').value = settings.mirrorCount;
-	$('difficulty').value = settings.difficulty;
 }
 
 function onKey(e) {
