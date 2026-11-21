@@ -133,8 +133,8 @@ c.ok(goal.evaluateContract(splitExtra, trace.traceRecv).forbiddenLight, 'real sp
 const root = path.join(__dirname, '..');
 const html = fs.readFileSync(path.join(root, 'index.html'), 'utf8');
 const scripts = Array.from(html.matchAll(/<script src="([^"]+)"><\/script>/g), match => match[1]);
-c.eq(scripts.length, 11, 'classic script count');
-c.same(scripts, ['board.js', 'trace.js', 'contract.js', 'hints.js', 'presets.js', 'generate.js', 'rim.js', 'render.js', 'game.js', 'input.js', 'app.js'], 'classic scripts load in order');
+c.eq(scripts.length, 12, 'classic script count');
+c.same(scripts, ['board.js', 'trace.js', 'contract.js', 'difficulty.js', 'hints.js', 'presets.js', 'generate.js', 'rim.js', 'render.js', 'game.js', 'input.js', 'app.js'], 'classic scripts load in order');
 const inputs = {};
 for (const id of ['hint-current', 'hint-discoveries', 'hint-targets']) {
 	const input = html.match(new RegExp('<input[^>]*id="' + id + '"[^>]*>'));
@@ -143,12 +143,15 @@ for (const id of ['hint-current', 'hint-discoveries', 'hint-targets']) {
 }
 const browser = vm.createContext({ document: { getElementById: id => inputs[id] } });
 // vm covers the DOM-free rule layer; render/game/input/app need real DOM and boot via app.js
-for (const script of scripts.slice(0, 4)) vm.runInContext(fs.readFileSync(path.join(root, script), 'utf8'), browser, { filename: script });
+for (const script of scripts.slice(0, scripts.indexOf('hints.js') + 1)) vm.runInContext(fs.readFileSync(path.join(root, script), 'utf8'), browser, { filename: script });
 inputs['hint-current'].checked = true;
 inputs['hint-targets'].checked = true;
 const controls = vm.runInContext('readHintControls()', browser);
 c.ok(controls.current && !controls.discoveries && controls.targets, 'checkbox state read independently in classic scripts');
 c.ok(vm.runInContext('createStrictContract([{cell: 7, mask: 7}]).quota === 1', browser), 'contract works in classic browser scripts');
+const classicCand = '{ mode: 0, corner: false, start: new Uint8Array(49), startEmitter: 4, contract: createContract([{ cell: 6, mask: 0 }], 1, false) }';
+c.eq(vm.runInContext('shortestSolve(' + classicCand + ').moves', browser), 2, 'difficulty search resolves classic-script globals');
+c.eq(vm.runInContext('measureWalks(' + classicCand + ', () => 0.95, 4, 3).walks', browser), 4, 'walk score resolves classic-script globals');
 
 function rejects(fn, message) {
 	let threw = false;
