@@ -1,82 +1,170 @@
-// owns: 0.4 generation acceptance — replay-verified witnesses, no invalid/already-won starts
+// owns: 0.4/0.8 generation acceptance — exact counts, profile, scramble policy, preset catalog, replay verification
 // run: node experiments/generate_fixtures.js
 
 const board = require('../board.js');
+const presets = require('../presets.js');
 const gen = require('../generate.js');
 const c = require('./check.js');
 
-const MQ = board.MODE_QUARTER;
-const MS = board.MODE_SINGLE;
-const modes = [MQ, MS];
+const CELLS = board.GLASS * board.GLASS;
+const GMIN = board.GLASS_OFF;
+const GMAX = board.GLASS_OFF + board.GLASS - 1;
+const modes = [gen.MQ, gen.MS];
 const corners = [false, true];
-const bands = [0, 1, 2];
-const SEEDS = 200;
+const dials = [0, 0.25, 0.5, 0.75, 1];
+const SEEDS = 100;
 
-// forced fallback: the preset itself must be replay-verified in every ruleset
-for (const mode of modes) {
-	for (const corner of corners) {
-		for (const band of bands) {
-			const preset = gen.presetFor(mode, corner, band);
-			c.ok(gen.verifyCandidate(preset), 'preset valid mode=' + mode + ' corner=' + corner + ' band=' + band);
-			const forced = gen.generate(gen.makeRng(1), mode, corner, band, { maxAttempts: 0 });
-			c.ok(forced.preset && gen.verifyCandidate(forced), 'forced fallback valid mode=' + mode + ' corner=' + corner + ' band=' + band);
-		}
+function key(mode, corner, n, d) {
+	return 'mode=' + mode + ' corner=' + (corner ? 1 : 0) + ' mirrors=' + n + (d === undefined ? '' : ' difficulty=' + d);
+}
+
+function expectRange(fn, msg) {
+	try {
+		fn();
+		c.ok(false, msg);
+	} catch (e) {
+		c.ok(e instanceof RangeError, msg);
 	}
 }
 
-for (const mode of modes) {
-	for (const corner of corners) {
-		for (const band of bands) {
-			let fallback = 0;
-			const attempts = [];
-			const hitHist = {};
-			let quotaMin = 99, quotaMax = 0, poolMin = 99, poolMax = 0;
-			for (let s = 1; s <= SEEDS; s++) {
-				const seed = s * 1000 + mode * 97 + (corner ? 13 : 0) + band * 11;
-				const cand = gen.generate(gen.makeRng(seed), mode, corner, band);
-				c.ok(gen.verifyCandidate(cand), 'replay-verified mode=' + mode + ' corner=' + corner + ' band=' + band + ' seed=' + s);
-				const h = cand.witnessHits.length;
-				// holds for the preset too (one hit, quota 1)
-				if (band === 0) c.eq(cand.contract.quota, Math.max(1, (h + 1) >> 1), 'band 0 quota is half the hits seed=' + s);
-				if (band === 1) c.eq(cand.contract.quota, h, 'band 1 quota is all hits seed=' + s);
-				if (band === 2) c.ok(cand.contract.forbidOutside, 'band 2 forbids outside seed=' + s);
-				if (cand.preset) {
-					fallback++;
-					continue;
-				}
-				attempts.push(cand.attempts);
-				hitHist[h] = (hitHist[h] || 0) + 1;
-				quotaMin = Math.min(quotaMin, cand.contract.quota);
-				quotaMax = Math.max(quotaMax, cand.contract.quota);
-				let pool = 0;
-				for (let i = 0; i < cand.contract.requirements.length; i++) if (cand.contract.requirements[i]) pool++;
-				poolMin = Math.min(poolMin, pool);
-				poolMax = Math.max(poolMax, pool);
-			}
-			const sorted = attempts.slice().sort((a, b) => a - b);
-			const median = sorted.length ? sorted[sorted.length >> 1] : 0;
-			const min = sorted.length ? sorted[0] : 0;
-			const max = sorted.length ? sorted[sorted.length - 1] : 0;
-			const fbPct = (100 * fallback / SEEDS).toFixed(1);
-			console.log('mode=' + mode + ' corner=' + (corner ? 1 : 0) + ' band=' + band +
-				' n=' + SEEDS + ' fallback=' + fallback + '(' + fbPct + '%)' +
-				' attempts[min/med/max]=' + min + '/' + median + '/' + max +
-				' hits=' + JSON.stringify(hitHist) +
-				' quota[' + quotaMin + '..' + quotaMax + ']' +
-				' pool[' + poolMin + '..' + poolMax + ']');
-		}
-	}
+function quotaFor(h, prof) {
+	return prof.strict ? h : Math.min(h, Math.max(1, Math.ceil(h * prof.quotaFrac - 1e-9)));
 }
 
-// pool enlargement must still produce replay-verified, non-already-won puzzles
+// exact-count sampling: every count, clear cells zero, nonzero masks, full cell coverage, reproducible
+const tiles = new Uint8Array(CELLS);
+for (let n = 1; n <= CELLS; n++) {
+	let bad = 0;
+	for (let s = 1; s <= 20; s++) {
+		gen.randomGlass(gen.makeRng(s * 131 + n), n, tiles);
+		let occupied = 0;
+		for (let i = 0; i < CELLS; i++) {
+			if (tiles[i] & 7) occupied++;
+			else if (tiles[i]) bad++;
+		}
+		if (occupied !== n) bad++;
+	}
+	c.eq(bad, 0, 'exact count, clear cells zero n=' + n);
+}
+const seen = new Uint8Array(CELLS);
+const rngCover = gen.makeRng(7);
+for (let s = 0; s < 2000; s++) {
+	gen.randomGlass(rngCover, 1, tiles);
+	for (let i = 0; i < CELLS; i++) if (tiles[i]) seen[i] = 1;
+}
+c.eq(seen.reduce((a, b) => a + b, 0), CELLS, 'count 1 can place a mirror on every cell');
+const again = gen.randomGlass(gen.makeRng(99), 11, new Uint8Array(CELLS));
+gen.randomGlass(gen.makeRng(5), 30, tiles);
+c.same(gen.randomGlass(gen.makeRng(99), 11, tiles), again, 'sampling independent of earlier calls');
+
+// explicit settings API
+for (const n of [0, 50, 1.5, NaN, '11', null]) expectRange(() => gen.generate(1, gen.MQ, false, 0, n), 'invalid count throws ' + n);
+for (const d of [NaN, Infinity, -Infinity]) expectRange(() => gen.generate(1, gen.MQ, false, d, 11), 'invalid difficulty throws ' + d);
+c.eq(gen.generate(1, gen.MQ, false, -1).difficulty, 0, 'difficulty clamps low');
+c.eq(gen.generate(1, gen.MQ, false, 2).difficulty, 1, 'difficulty clamps high');
+c.eq(gen.generate(1, gen.MQ, false, 0.5).mirrorCount, gen.MIRRORS_DEFAULT, 'default count');
+c.eq(gen.MIRRORS_DEFAULT, 11, 'default count is 11');
+c.eq(gen.generate(-1, gen.MQ, false, 0.5).seed, 0xffffffff, 'seed is unsigned 32-bit');
+
+// profile anchors, interpolation and rounding
+const p0 = gen.profile(0);
+const p1 = gen.profile(1);
+const p6 = gen.profile(1 / 6);
+c.ok(p0.quotaFrac === 0.5 && p0.exactProb === 0 && p0.scrambleMoves === 3 && p0.rings === 1 && !p0.strict, 'profile at 0');
+c.ok(p1.quotaFrac === 1 && p1.exactProb === 1 && p1.scrambleMoves === 14 && p1.rings === 4 && p1.strict, 'profile at 1');
+c.ok(Math.abs(p6.quotaFrac - 0.575) < 1e-12 && p6.scrambleMoves === 5 && p6.rings === 2, 'profile interpolates and rounds');
+c.ok(gen.profile(2 / 3).exactProb === 0.5 && gen.profile(2 / 3).scrambleMoves === 10, 'profile at 2/3');
+c.ok(!gen.profile(0.999).strict, 'strict only at 1');
+const hits20 = [];
+for (let col = 1; col <= 13; col++) hits20.push({ cell: col, mask: 7 });
+for (let row = 1; row <= 7; row++) hits20.push({ cell: row * board.BOARD_N, mask: 7 });
+c.eq(gen.deriveContract(hits20, gen.profile(1 / 3), gen.makeRng(1)).quota, 13, 'quota ceil ignores binary rounding');
+
+// scramble: exact length, eligible rings only, no immediate inverse, emitter in bounds
 for (const mode of modes) {
 	for (const corner of corners) {
 		let bad = 0;
-		for (let s = 1; s <= 50; s++) {
-			const cand = gen.generate(gen.makeRng(s + 5000), mode, corner, 1, { poolSamples: 8 });
-			if (!gen.verifyCandidate(cand)) bad++;
+		for (let s = 1; s <= 200; s++) {
+			const rng = gen.makeRng(s);
+			const w = gen.sampleWitness(rng, mode, corner, 11);
+			const rings = gen.eligibleRings(rng, 1 + (s % 4));
+			const sc = gen.scramble(rng, w, rings, 14);
+			if (sc.forward.length !== 14) bad++;
+			let e = w.emitter;
+			for (let i = 0; i < sc.forward.length; i++) {
+				const m = sc.forward[i];
+				const prev = sc.forward[i - 1];
+				if (m.e !== undefined) {
+					e += m.e;
+					if (e < board.EMITTER_MIN || e > board.EMITTER_MAX) bad++;
+					if (prev && prev.e === -m.e) bad++;
+					continue;
+				}
+				if (!((rings >> m.r) & 1)) bad++;
+				if (prev && prev.r === m.r && (m.r === 3 || prev.d === -m.d)) bad++;
+			}
 		}
-		c.ok(bad === 0, 'enlarged-pool band-1 valid mode=' + mode + ' corner=' + corner);
+		c.eq(bad, 0, 'scramble policy ' + key(mode, corner, 11));
+	}
+}
+
+// preset catalog: complete, white-only, exact count, valid at every dial and when forced
+c.eq(presets.PRESET_CODES.length, 4 * CELLS, 'catalog covers every key');
+for (const mode of modes) {
+	for (const corner of corners) {
+		let bad = 0;
+		for (let n = 1; n <= CELLS; n++) {
+			const tpl = presets.presetTemplate(mode, corner, n, tiles);
+			if (tpl.emitter < GMIN || tpl.emitter > GMAX) bad++;
+			if (!tpl.forward.some(a => a < gen.ACT_LEFT)) bad++;
+			for (let i = 0; i < CELLS; i++) if (tiles[i] && (tiles[i] & 7) !== 7) bad++;
+			for (const d of dials) {
+				const p = gen.presetFor(gen.genSettings(3, mode, corner, d, n), 0);
+				if (!p.preset || p.mirrorCount !== n || !gen.verifyCandidate(p)) bad++;
+				if (!p.solution.some(m => m.r !== undefined)) bad++;
+				if (p.witnessHits.length !== 1 || p.contract.quota !== 1 || p.contract.forbidOutside !== (d === 1)) bad++;
+			}
+			const forced = gen.generate(5, mode, corner, 0.5, n, { maxAttempts: 0 });
+			if (!forced.preset || forced.attempts !== 0 || gen.countMirrors(forced.start) !== n || !gen.verifyCandidate(forced)) bad++;
+		}
+		c.eq(bad, 0, 'preset catalog ' + key(mode, corner, '1..49'));
+	}
+}
+
+// acceptance sweep: replay-verified, exact count, profile contract and length, reproducible
+for (const mode of modes) {
+	for (const corner of corners) {
+		for (const n of [1, 11, 49]) {
+			for (const d of dials) {
+				const prof = gen.profile(d);
+				let bad = 0;
+				let fallback = 0;
+				let attempts = 0;
+				let hits = 0;
+				const t0 = Date.now();
+				for (let s = 1; s <= SEEDS; s++) {
+					const seed = s * 1000 + mode * 97 + (corner ? 13 : 0) + n;
+					const cand = gen.generate(seed, mode, corner, d, n);
+					attempts += cand.attempts;
+					if (!gen.verifyCandidate(cand) || gen.countMirrors(cand.witness) !== n) bad++;
+					if (cand.preset) {
+						fallback++;
+						continue;
+					}
+					hits += cand.witnessHits.length;
+					if (cand.contract.quota !== quotaFor(cand.witnessHits.length, prof)) bad++;
+					if (cand.contract.forbidOutside !== prof.strict) bad++;
+					if (cand.solution.length !== prof.scrambleMoves) bad++;
+					if (cand.witnessEmitter < GMIN || cand.witnessEmitter > GMAX) bad++;
+					if (s <= 5) c.same(gen.generate(seed, mode, corner, d, n).start, cand.start, 'reproducible ' + key(mode, corner, n, d));
+				}
+				c.eq(bad, 0, 'generation ' + key(mode, corner, n, d));
+				const live = SEEDS - fallback;
+				console.log(key(mode, corner, n, d) + ' samples=' + SEEDS + ' fallback_rate=' + (fallback / SEEDS).toFixed(3) +
+					' attempts_avg=' + (attempts / SEEDS).toFixed(2) + ' hits_avg=' + (live ? hits / live : 0).toFixed(2) +
+					' gen_ms_avg=' + ((Date.now() - t0) / SEEDS).toFixed(3));
+			}
+		}
 	}
 }
 
