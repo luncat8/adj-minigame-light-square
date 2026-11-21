@@ -355,6 +355,6 @@ const vmCtx = vm.createContext({
 for (const script of scripts) {
 	vm.runInContext(fs.readFileSync(path.join(rootDir, script), 'utf8'), vmCtx, { filename: script });
 }
-c.eq(vmEls['canv'].width, 600, 'all 11 classic scripts boot cleanly in one shared lexical scope');
+c.eq(vmEls['canv'].width, 600, 'all 12 classic scripts boot cleanly in one shared lexical scope');
 
 c.report('dom_smoke');
