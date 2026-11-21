@@ -94,10 +94,10 @@ function enlargePool(rng, witness, mode, corner, pool, samples) {
 	}
 }
 
-// strict uses the whole lit set with exact masks; easy uses a quota <= hits, any color
+// band 0: half the hits, any color; band 1: all hits, any color; band 2: strict exact
 function deriveContract(hits, difficulty, rng, witness, mode, corner, poolSamples) {
 	if (hits.length === 0) return null;
-	if (difficulty === 'strict') {
+	if (difficulty === 2) {
 		const targets = hits.map(h => ({ cell: h.cell, mask: h.mask }));
 		try {
 			return fStrict(targets);
@@ -107,7 +107,7 @@ function deriveContract(hits, difficulty, rng, witness, mode, corner, poolSample
 	}
 	const pool = hits.map(h => ({ cell: h.cell, mask: 0 }));
 	if (poolSamples > 0) enlargePool(rng, witness, mode, corner, pool, poolSamples);
-	const quota = Math.max(1, hits.length);
+	const quota = difficulty === 0 ? Math.max(1, (hits.length + 1) >> 1) : hits.length;
 	try {
 		return fCreateContract(pool, quota, false);
 	} catch (e) {
@@ -181,7 +181,7 @@ function makeTrivialPreset(mode, corner, difficulty) {
 	const start = new Uint8Array(GL * GL);
 	witness[CENTER] = 7;
 	start[CENTER] = 7 | 8;
-	const contract = difficulty === 'strict'
+	const contract = difficulty === 2
 		? fStrict([{ cell: target, mask: 7 }])
 		: fCreateContract([{ cell: target, mask: 0 }], 1, false);
 	return {
@@ -204,6 +204,10 @@ function presetFor(mode, corner, difficulty) {
 	return makeTrivialPreset(mode, corner, difficulty);
 }
 
+// default scramble depth per band — an average (plan 0.4), not a difficulty guarantee
+const BAND_DEPTH = [4, 6, 10];
+const BAND_SCATTER = [8, 10, 14];
+
 // sample, derive, scramble, replay-verify; fall back to a preset only when bounded out
 function generate(rng, mode, corner, difficulty, opts) {
 	opts = opts || {};
@@ -211,7 +215,7 @@ function generate(rng, mode, corner, difficulty, opts) {
 	const poolSamples = opts.poolSamples != null ? opts.poolSamples : 0;
 	const scrambleLen = opts.scrambleLen != null
 		? opts.scrambleLen
-		: 4 + randInt(rng, 12);
+		: BAND_DEPTH[difficulty] + randInt(rng, BAND_SCATTER[difficulty]);
 	for (let attempt = 0; attempt < maxAttempts; attempt++) {
 		const witness = sampleWitness(rng, mode, corner);
 		const hits = traceHits(witness.tiles, witness.emitter);
