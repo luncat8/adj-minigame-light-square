@@ -1,0 +1,14 @@
+mode=0 corner=0 mirrors=11 difficulty=0 samples=30 par_exact_n=30 par_capped_n=0 par_exact_avg=1.37 visited_avg=19 bfs_ms_avg=0.20
+mode=0 corner=0 mirrors=11 difficulty=0.5 samples=30 par_exact_n=30 par_capped_n=0 par_exact_avg=2.60 visited_avg=92 bfs_ms_avg=0.20
+mode=0 corner=0 mirrors=11 difficulty=1 samples=30 par_exact_n=30 par_capped_n=0 par_exact_avg=3.10 visited_avg=149 bfs_ms_avg=0.30
+mode=0 corner=1 mirrors=11 difficulty=0 samples=30 par_exact_n=30 par_capped_n=0 par_exact_avg=1.43 visited_avg=23 bfs_ms_avg=0.20
+mode=0 corner=1 mirrors=11 difficulty=0.5 samples=30 par_exact_n=30 par_capped_n=0 par_exact_avg=2.50 visited_avg=81 bfs_ms_avg=0.17
+mode=0 corner=1 mirrors=11 difficulty=1 samples=30 par_exact_n=30 par_capped_n=0 par_exact_avg=3.10 visited_avg=149 bfs_ms_avg=0.17
+mode=1 corner=0 mirrors=11 difficulty=0 samples=30 par_exact_n=30 par_capped_n=0 par_exact_avg=1.70 visited_avg=35 bfs_ms_avg=0.13
+mode=1 corner=0 mirrors=11 difficulty=0.5 samples=30 par_exact_n=30 par_capped_n=0 par_exact_avg=3.33 visited_avg=403 bfs_ms_avg=0.40
+mode=1 corner=0 mirrors=11 difficulty=1 samples=30 par_exact_n=30 par_capped_n=0 par_exact_avg=4.83 visited_avg=865 bfs_ms_avg=0.67
+mode=1 corner=1 mirrors=11 difficulty=0 samples=30 par_exact_n=30 par_capped_n=0 par_exact_avg=1.67 visited_avg=30 bfs_ms_avg=0.10
+mode=1 corner=1 mirrors=11 difficulty=0.5 samples=30 par_exact_n=30 par_capped_n=0 par_exact_avg=3.33 visited_avg=418 bfs_ms_avg=0.47
+mode=1 corner=1 mirrors=11 difficulty=1 samples=30 par_exact_n=30 par_capped_n=0 par_exact_avg=4.83 visited_avg=882 bfs_ms_avg=0.73
+mode=0 corner=1 mirrors=11 difficulty=0.25 samples=40 score_avg=0.650 walk_ms_avg=0.88 select8_ms_est=7.0
+mode=1 corner=1 mirrors=11 difficulty=0.25 samples=40 score_avg=0.725 walk_ms_avg=0.90 select8_ms_est=7.2
