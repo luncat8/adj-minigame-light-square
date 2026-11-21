@@ -3,19 +3,53 @@
 <head>
 <meta charset="utf-8">
 <meta name="viewport" content="width=device-width, initial-scale=1">
-<title></title>
+<title>Light Square</title>
+<style>
+	body { background: #000; color: #cfd6e4; font: 14px system-ui, sans-serif; margin: 0; padding: 12px; display: flex; flex-direction: column; align-items: center; gap: 10px; }
+	#canv { width: min(92vmin, 640px); aspect-ratio: 1; touch-action: none; }
+	#readout span { margin-right: 14px; }
+	#readout-msg { color: #8b93a7; }
+	#panel { display: flex; flex-wrap: wrap; gap: 14px; justify-content: center; }
+	fieldset { border: 1px solid #2a2f3a; border-radius: 6px; display: flex; flex-wrap: wrap; gap: 8px; align-items: center; }
+	legend { color: #8b93a7; padding: 0 6px; }
+	button { background: #141821; color: #cfd6e4; border: 1px solid #2a2f3a; border-radius: 6px; padding: 6px 12px; }
+	button:active { background: #232a38; }
+	input[type=range] { width: 130px; }
+</style>
 </head>
 <body>
 <canvas id="canv"></canvas>
-<fieldset>
-<legend>Hints</legend>
+<div id="readout"><span id="readout-pct">0%</span><span id="readout-msg"></span><span id="readout-rules"></span></div>
+<div id="panel">
+<fieldset><legend>Board</legend>
+<button id="btn-cw">CW</button>
+<button id="btn-ccw">CCW</button>
+<button id="btn-left">&#9664;</button>
+<button id="btn-right">&#9654;</button>
+</fieldset>
+<fieldset><legend>Generate</legend>
+<select id="rule-mode"><option value="0">quarter turns</option><option value="1">single slots</option></select>
+<label><input type="checkbox" id="rule-corner"> corners flip</label>
+<input type="range" id="band" min="0" max="2" step="1" value="1" title="difficulty">
+<span id="band-label"></span>
+<button id="btn-generate">Generate</button>
+<button id="btn-restart">Restart</button>
+<button id="btn-preview">Preview (hold)</button>
+</fieldset>
+<fieldset><legend>Hints</legend>
 <label><input type="checkbox" id="hint-current"> Current matches</label>
 <label><input type="checkbox" id="hint-discoveries"> Remember discoveries</label>
 <label><input type="checkbox" id="hint-targets"> Show targets</label>
 </fieldset>
+</div>
 <script src="board.js"></script>
 <script src="trace.js"></script>
 <script src="contract.js"></script>
 <script src="hints.js"></script>
+<script src="generate.js"></script>
+<script src="render.js"></script>
+<script src="game.js"></script>
+<script src="input.js"></script>
+<script src="app.js"></script>
 </body>
 </html>

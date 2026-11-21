@@ -122,8 +122,8 @@ c.ok(goal.evaluateContract(splitExtra, trace.traceRecv).forbiddenLight, 'real sp
 const root = path.join(__dirname, '..');
 const html = fs.readFileSync(path.join(root, 'index.html'), 'utf8');
 const scripts = Array.from(html.matchAll(/<script src="([^"]+)"><\/script>/g), match => match[1]);
-c.eq(scripts.length, 4, 'classic script count');
-c.same(scripts, ['board.js', 'trace.js', 'contract.js', 'hints.js'], 'classic scripts load in order');
+c.eq(scripts.length, 9, 'classic script count');
+c.same(scripts, ['board.js', 'trace.js', 'contract.js', 'hints.js', 'generate.js', 'render.js', 'game.js', 'input.js', 'app.js'], 'classic scripts load in order');
 const inputs = {};
 for (const id of ['hint-current', 'hint-discoveries', 'hint-targets']) {
 	const input = html.match(new RegExp('<input[^>]*id="' + id + '"[^>]*>'));
@@ -131,7 +131,8 @@ for (const id of ['hint-current', 'hint-discoveries', 'hint-targets']) {
 	inputs[id] = { checked: false };
 }
 const browser = vm.createContext({ document: { getElementById: id => inputs[id] } });
-for (const script of scripts) vm.runInContext(fs.readFileSync(path.join(root, script), 'utf8'), browser, { filename: script });
+// vm covers the DOM-free rule layer; render/game/input/app need real DOM and boot via app.js
+for (const script of scripts.slice(0, 4)) vm.runInContext(fs.readFileSync(path.join(root, script), 'utf8'), browser, { filename: script });
 inputs['hint-current'].checked = true;
 inputs['hint-targets'].checked = true;
 const controls = vm.runInContext('readHintControls()', browser);
