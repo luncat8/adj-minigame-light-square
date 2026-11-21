@@ -137,7 +137,7 @@ getObj().data().action()
 ## current workstream
 
 0.1–0.6 implemented. Play surface animates short directed beam dashes from emitter to receiver and paints reactive rim items in `RIM_PAD` margin (`render.js`), driven by `contractState(result)` without touching trace or scoring. `dom_smoke.js` covers handlers, rim states and shared classic-script scope; L2 = all five experiment scripts whenever `index.html` or load order changes.
-next: optional deferred scope from `draft.txt` / `0.1.0-plan.md` — physical multi-column emitter width (1–3 columns in `trace.js` + `generate.js` + `render.js`), or ring rotation transition polish.
+next: 0.7 sound (`0.7.0-plan.md`): trace event log -> sonify score -> audio engine + 5 synth variants + Sound panel. deferred: emitter width (`0.1.0-plan.md`), ring rotation transition polish.
 
 ## housekeeping
 

@@ -68,8 +68,6 @@ function sizeCanvas() {
 	rCell = px / RENDER_SPAN;
 }
 
-function renderInvalidate() {}
-
 function renderView(v) {
 	rView.tiles = v.tiles;
 	rView.emitter = v.emitter;
@@ -351,6 +349,5 @@ if (typeof module !== 'undefined') module.exports = {
 	renderInit,
 	renderView,
 	renderSetSelection,
-	renderPointToCell,
-	renderInvalidate
+	renderPointToCell
 };
