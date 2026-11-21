@@ -75,6 +75,10 @@ function stepEmitter(puzzle, dir) {
 	puzzle.emitter = Math.max(EMITTER_MIN, Math.min(EMITTER_MAX, puzzle.emitter + dir));
 }
 
+function setEmitter(puzzle, col) {
+	puzzle.emitter = Math.max(EMITTER_MIN, Math.min(EMITTER_MAX, col));
+}
+
 function createPuzzle(mode, corner) {
 	return {
 		mode,
@@ -114,5 +118,7 @@ if (typeof module !== 'undefined') module.exports = {
 	restartPuzzle,
 	shiftRing,
 	permuteRing,
-	stepEmitter
+	stepSlots,
+	stepEmitter,
+	setEmitter
 };
