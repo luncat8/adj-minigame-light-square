@@ -67,7 +67,13 @@ function inputInit(root) {
 	bindHints();
 	const bandEl = $('band');
 	const syncBand = () => { $('band-label').textContent = gBand(bandEl.value); };
-	bandEl.addEventListener('input', syncBand);
+	const regenSettings = () => { syncBand(); gNew(); };
+	$('rule-mode').addEventListener('change', regenSettings);
+	$('rule-mode').addEventListener('input', regenSettings);
+	$('rule-corner').addEventListener('change', regenSettings);
+	$('rule-corner').addEventListener('input', regenSettings);
+	bandEl.addEventListener('input', () => { syncBand(); gNew(); });
+	bandEl.addEventListener('change', regenSettings);
 	syncBand();
 	select(0);
 	if (typeof window !== 'undefined') {
