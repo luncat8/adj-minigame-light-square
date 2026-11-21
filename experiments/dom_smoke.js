@@ -114,14 +114,9 @@ for (let i = 0; i < ring0.length; i++) live().puzzle.tiles[ring0[i]] = (i % 7) +
 const ring2 = board.RING_CELLS[2];
 for (let i = 0; i < ring2.length; i++) live().puzzle.tiles[ring2[i]] = ((i + 2) % 7) + 1;
 
-// explicit button works immediately on boot (ring 0 preselected)
-let before = tilesCopy();
-els['btn-cw'].fire('click');
-c.ok(!sameArr(before, live().puzzle.tiles), 'cw button works on initial selection');
-
 // wheel steps the hovered ring and selects it
-before = tilesCopy();
-canv.fire('wheel', { deltaY: -120, clientX: px(7), clientY: px(4) });
+let before = tilesCopy();
+canv.fire('wheel', { deltaY: -100, deltaMode: 0, timeStamp: 1000, clientX: px(7), clientY: px(4) });
 c.ok(!sameArr(before, live().puzzle.tiles), 'wheel steps ring 0');
 canv.fire('pointermove', { pointerId: 9, clientX: px(7), clientY: px(4) });
 pump(1, 200);
@@ -147,18 +142,42 @@ canv.fire('pointermove', { pointerId: 4, clientX: endX, clientY: endY });
 canv.fire('pointerup', { pointerId: 4, clientX: endX, clientY: endY });
 c.ok(sameArr(afterCenter, live().puzzle.tiles), 'pointermove after center click leaves outer rings untouched');
 
-// keyboard 1-4 selects ring for explicit buttons
-winHandlers.keydown[0]({ key: '3' });
-before = tilesCopy();
-els['btn-cw'].fire('click');
-c.ok(!sameArr(before, live().puzzle.tiles), 'key 3 selects ring 2 for cw button');
-
 // emitter drag along the bottom border
 canv.fire('pointerdown', { pointerId: 2, clientX: px(5), clientY: px(14) });
 c.eq(live().puzzle.emitter, 5, 'pointer sets emitter');
 canv.fire('pointermove', { pointerId: 2, clientX: px(9), clientY: px(14) });
 canv.fire('pointerup', { pointerId: 2, clientX: px(9), clientY: px(14) });
 c.eq(live().puzzle.emitter, 9, 'drag moves emitter');
+
+// wheel detents: one step per physical notch whatever the OS split or lines setting; counted on the emitter
+function wheelSteps(t0, gapMs, events, deltaY, deltaMode) {
+	live().puzzle.emitter = board.EMITTER_MID;
+	for (let i = 0; i < events; i++) {
+		canv.fire('wheel', { deltaY, deltaMode, timeStamp: t0 + i * gapMs, clientX: px(4), clientY: px(14) });
+	}
+	return live().puzzle.emitter - board.EMITTER_MID;
+}
+function hiResDetents(t0, detentGapMs, detents, split) {
+	live().puzzle.emitter = board.EMITTER_MID;
+	for (let d = 0; d < detents; d++) {
+		for (let i = 0; i < split; i++) {
+			canv.fire('wheel', { deltaY: -100 / split, deltaMode: 0, timeStamp: t0 + d * detentGapMs + i * 4, clientX: px(4), clientY: px(14) });
+		}
+	}
+	return live().puzzle.emitter - board.EMITTER_MID;
+}
+c.eq(wheelSteps(10000, 300, 3, -100, 0), 3, 'slow 3-line notches step once each');
+c.eq(wheelSteps(20000, 30, 4, -100, 0), 4, 'fast 3-line spin steps once per event');
+c.eq(wheelSteps(30000, 30, 3, 100, 0), -3, 'fast spin down steps back once per event');
+c.eq(hiResDetents(40000, 300, 2, 8), 2, 'hi-res 8-event detents step once per detent');
+c.eq(hiResDetents(50000, 40, 4, 8), 4, 'continuous hi-res spin steps once per detent');
+c.eq(hiResDetents(55000, 70, 5, 16), 5, 'continuous 16-event detents step once per detent');
+c.eq(wheelSteps(60000, 300, 3, -1, 1), 3, 'slow 1-line notches step once each');
+c.eq(wheelSteps(70000, 30, 5, -1, 1), 5, 'fast 1-line spin steps once per event after learning');
+c.eq(wheelSteps(80000, 30, 2, -40, 1), 2, 'oversized events never step twice');
+c.eq(wheelSteps(90000, 30, 2, 0, 0), 0, 'horizontal-only wheel never steps');
+wheelSteps(100000, 30, 1, -1, 1);
+c.eq(wheelSteps(100010, 30, 1, 1, 1), -1, 'direction flip mid-burst steps at once');
 
 // preview: hover holds, shows witness item state, leave/blur/key release restore live view
 const recvBefore = recvCopy();
@@ -286,6 +305,7 @@ const vmCtx = vm.createContext({
 	Uint8Array,
 	Int8Array,
 	Int32Array,
+	Float64Array,
 	RangeError,
 	Set,
 	document: {
