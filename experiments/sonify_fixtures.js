@@ -100,6 +100,8 @@ c.ok(!!topNote && !!rightNote, 'split produces top (2ch) and right (1ch) absorbs
 c.ok(Math.abs(topNote.vel / rightNote.vel - Math.sqrt(2)) < 1e-6, 'velocity scales with sqrt(channel count)');
 const splitEv = Array.from({ length: sSplit.n }, (_, i) => sSplit.notes[i]).find(n => n.kind === trace.EV_SPLIT);
 c.ok(!!splitEv && splitEv.panTo > splitEv.pan && splitEv.fork === 1, 'rightward split glides panTo right and carries fork branch');
+c.ok(splitEv.ch === 7 && splitEv.ref === 1, 'split note carries union channels plus reflect bits');
+c.ok(!!topNote && topNote.ref === 0, 'absorb notes carry zero reflect bits');
 
 const leftMirror = new Uint8Array(49);
 leftMirror[3 * 7 + 3] = 7 | board.TILE_DIAG; // '\' turns left from UP
