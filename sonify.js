@@ -34,6 +34,7 @@ let soRawKind = null;
 let soRawDirIn = null;
 let soRawDirOut = null;
 let soRawCh = null;
+let soRawRef = null;
 let soRawTurn = null;
 let soDefaultScore = null;
 
@@ -61,6 +62,7 @@ function sonifyInit() {
 	soRawDirIn = new Uint8Array(SO_RAW_CAP);
 	soRawDirOut = new Uint8Array(SO_RAW_CAP);
 	soRawCh = new Uint8Array(SO_RAW_CAP);
+	soRawRef = new Uint8Array(SO_RAW_CAP);
 	soRawTurn = new Int8Array(SO_RAW_CAP);
 	soDefaultScore = sonifyCreateScore();
 	soReady = true;
@@ -71,7 +73,7 @@ function sonifyCreateScore() {
 	for (let i = 0; i < SO_MAX_NOTES; i++) {
 		notes[i] = {
 			depth: 0, cell: 0, branch: 0, fork: 0, kind: 0,
-			midi: 60, pan: 0, panTo: 0, vel: 0, ch: 0,
+			midi: 60, pan: 0, panTo: 0, vel: 0, ch: 0, ref: 0,
 			bright: 0.5, turn: 0, dirOut: 0, bounce: 0, status: 0
 		};
 	}
@@ -154,6 +156,7 @@ function soCapSlice(start, end) {
 					continue;
 				}
 				soRawCh[first] |= soRawCh[i];
+				soRawRef[first] |= soRawRef[i];
 				if (!soRawFork[first] && soRawFork[i]) soRawFork[first] = soRawFork[i];
 				soRawActive[i] = 0;
 				active--;
@@ -263,6 +266,7 @@ function sonifyBuild(view, cfg, out) {
 		soRawDirIn[i] = dirIn;
 		soRawDirOut[i] = dirOut;
 		soRawCh[i] = passCh | refCh;
+		soRawRef[i] = refCh;
 		soRawTurn[i] = dirIn === refDir ? 0 : (((refDir - dirIn) & 3) === 3 ? 1 : -1);
 	}
 
@@ -287,6 +291,7 @@ function sonifyBuild(view, cfg, out) {
 		const dirIn = soRawDirIn[i];
 		const dirOut = soRawDirOut[i];
 		const ch = soRawCh[i] & 7;
+		const ref = soRawRef[i] & 7;
 		const turn = soRawTurn[i];
 		const row = (cell / soN) | 0;
 		const col = cell - row * soN;
@@ -314,6 +319,7 @@ function sonifyBuild(view, cfg, out) {
 		note.panTo = soClampPan((col + 0.5 * SO_DELTA_C[dirOut] - half) / half) * width;
 		note.vel = Math.min(1, SO_KIND_VEL[kind] * Math.sqrt(SO_POPCOUNT[ch] / 3));
 		note.ch = ch;
+		note.ref = ref;
 		note.bright = 1 - row / (soN - 1);
 		note.turn = turn;
 		note.dirOut = dirOut;
