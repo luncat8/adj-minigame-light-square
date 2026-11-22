@@ -80,3 +80,10 @@ imagine light particle pass from laser emoter and slowly fly - every time it hit
 you can use stereo, phase, tone, volume, low-freq envelope, other good sounding techniques to produce responsive, interesting soundscape.
 
 because this difficult to predict what will work - better make some variants to choose.
+
+
+### sound generator
+
+make new synth based on next idea:
+color is spectrum. color filter - subtractive from noise. reflection move sound in direction then sound source move to it relative to previous direction | absolute according to settings. Example white ray move up sound noise, it hit red mirror and low freq will start to move to left (pan, and if no obstacles after some time reach 100% left stereo) and other freq start to move to center (pan).
+think good how to improve.
