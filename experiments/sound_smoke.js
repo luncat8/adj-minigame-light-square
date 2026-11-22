@@ -361,6 +361,15 @@ $('snd-variant').value = 'glass';
 $('snd-variant').fire('change');
 c.eq(panel.soundPanelSettings().params.glass.decay, 2.1, 'switching back preserves edited per-variant value');
 
+// Choice params: select control stores its string, survives panel reinit, and invalid storage falls back
+$('snd-variant').value = 'spectrum';
+$('snd-variant').fire('change');
+$('snd-param-aim').value = 'relative';
+$('snd-param-aim').fire('change');
+c.eq(panel.soundPanelSettings().params.spectrum.aim, 'relative', 'choice param change stores its value');
+panel.soundPanelInit();
+c.eq(panel.soundPanelSettings().params.spectrum.aim, 'relative', 'choice param persists across panel reinit');
+
 // Polyphony cap: dense rapid replays never exceed 32 live voices and steal oldest with 30 ms ramp
 $('snd-variant').value = 'grains';
 $('snd-variant').fire('change');
