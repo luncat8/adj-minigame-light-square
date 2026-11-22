@@ -63,7 +63,7 @@ getObj().data().action()
 	renderAlt.js — owns the prototype render skin: rounded glass, solid additive beams, diamond targets. edit for prototype skin visuals, beam glow, overlay shapes.
 	skins.js — owns render skin selection, beam ray style and the page-facing render entry points. edit for adding or switching a skin or ray style; skins expose interface-named functions (glass*, renderAlt*).
 	sonify.js — owns DOM-free trace-event to score mapping, musical scales, pitch sources, density caps and leak gating. edit for mappings, scales and caps.
-	patchesFlow.js — owns continuous branch-following and granular synth variants (Prism Pad, Comet, Crystal Grains). edit for portamento, HRTF Doppler and grain clouds.
+	patchesFlow.js — owns continuous branch-following and granular synth variants (Prism Pad, Comet, Crystal Grains, Spectral Field). edit for portamento, HRTF Doppler, grain clouds and the subtractive spectral noise synth.
 	patches.js — owns synth variant table, param schemas, struck/groove variants (Glass Harp, Pulse), harmonic bed, emitter breath and win flourish. edit for variant registry and struck/bed timbres.
 	audio.js — owns AudioContext lifecycle, master bus, reverb IR, lookahead scheduler, waves, bed crossfade and soundView sink. edit for timing, mixing, ghost preview and polyphony cap.
 	soundpanel.js — owns Sound panel DOM controls, dynamic variant parameter block, mute toggle and localStorage persistence. edit for controls, defaults and storage schema.

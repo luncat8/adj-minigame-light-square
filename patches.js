@@ -437,6 +437,18 @@ const PATCH_LIST = [
 		],
 		note(ac, bus, n, p, when, wave) { const m = paFlow(); (m ? m.pfGrainsNote : pfGrainsNote)(ac, bus, n, p, when, wave); },
 		bed: paBed
+	},
+	{
+		id: 'spectrum',
+		label: 'Spectral Field',
+		params: [
+			{ key: 'drift', label: 'Drift ↔ position', min: 0, max: 1, step: 0.05, def: 0.75 },
+			{ key: 'driftStep', label: 'Drift speed', min: 0.05, max: 0.5, step: 0.01, def: 0.16 },
+			{ key: 'reso', label: 'Band split', min: 0.5, max: 6, step: 0.1, def: 1.6 },
+			{ key: 'bright', label: 'Brightness', min: 0.3, max: 1.5, step: 0.05, def: 1.0 }
+		],
+		note(ac, bus, n, p, when, wave) { const m = paFlow(); (m ? m.pfSpectrumNote : pfSpectrumNote)(ac, bus, n, p, when, wave); },
+		bed: paBed
 	}
 ];
 

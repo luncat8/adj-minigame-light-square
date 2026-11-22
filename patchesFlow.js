@@ -341,8 +341,114 @@ function pfGrainsNote(ac, bus, n, p, when, wave) {
 	wave.voice(cloudG, lastEnd + 0.01, lastOsc);
 }
 
+// Spectral Field: a white-noise source sculpted per event by color as a subtractive band filter
+// (R=low, G=mid, B=high; white = full spectrum), panned as a moving source that follows the beam.
+// A reflection steers the source in its new direction; `drift` blends a relative accumulator
+// (source keeps drifting toward the edge until an obstacle turns it) with the absolute board column.
+// A mirror hit by white light is a split: the reflected color deflects, the passthrough keeps going
+// straight — so low frequencies peel left while the rest stay centered, exactly as described.
+function pfSpectrumColor(ac, src, sum, colorCh, p, bright, when) {
+	if (!colorCh || colorCh === 7) {
+		const lp = ac.createBiquadFilter();
+		lp.type = 'lowpass';
+		lp.frequency.setValueAtTime(2600 + 5200 * bright, when);
+		src.connect(lp);
+		lp.connect(sum);
+		return;
+	}
+	if (colorCh & 1) {
+		const lp = ac.createBiquadFilter();
+		lp.type = 'lowpass';
+		lp.frequency.setValueAtTime(360 + 260 * (1 - bright), when);
+		const g = ac.createGain();
+		g.gain.setValueAtTime(0.55 + 0.45 * (1 - bright), when);
+		src.connect(lp);
+		lp.connect(g);
+		g.connect(sum);
+	}
+	if (colorCh & 2) {
+		const bp = ac.createBiquadFilter();
+		bp.type = 'bandpass';
+		bp.frequency.setValueAtTime(1050, when);
+		bp.Q.setValueAtTime(0.7 + 0.5 * p.reso, when);
+		const g = ac.createGain();
+		g.gain.setValueAtTime(0.6 + 0.4 * bright, when);
+		src.connect(bp);
+		bp.connect(g);
+		g.connect(sum);
+	}
+	if (colorCh & 4) {
+		const hp = ac.createBiquadFilter();
+		hp.type = 'highpass';
+		hp.frequency.setValueAtTime(1500, when);
+		const g = ac.createGain();
+		g.gain.setValueAtTime(0.3 + 0.7 * bright, when);
+		src.connect(hp);
+		hp.connect(g);
+		g.connect(sum);
+	}
+}
+
+function pfSpectrumNote(ac, bus, n, p, when, wave) {
+	const st = wave.state;
+	if (!st.spectrum) st.spectrum = { curPan: n.pan, acc: 0, lastWhen: when };
+	const sp = st.spectrum;
+	const gap = sp.lastWhen ? Math.min(1.0, Math.max(0.04, when - sp.lastWhen)) : 0.05;
+	sp.lastWhen = when;
+
+	const hx = dir => dir === 1 ? 1 : (dir === 3 ? -1 : 0);
+
+	function spawn(colorCh, dir, useDrift) {
+		const src = ac.createBufferSource();
+		src.buffer = pfNoise(ac);
+		src.loop = true;
+		const sum = ac.createGain();
+		sum.gain.setValueAtTime(1, when);
+		pfSpectrumColor(ac, src, sum, colorCh, p, n.bright, when);
+
+		const h = hx(dir);
+		if (useDrift) sp.acc = Math.max(-1, Math.min(1, sp.acc + h * p.driftStep));
+		const base = useDrift ? sp.acc : n.pan;
+		const target = (1 - p.drift) * n.pan + p.drift * base;
+
+		const isAbs = n.kind === 4;
+		const dur = (isAbs ? 1.2 : (n.kind === 0 ? 0.06 : 0.32)) * (0.6 + 0.6 * p.bright);
+		const peak = (isAbs ? 0.22 : (n.kind === 0 ? 0.12 : 0.2)) * n.vel;
+		const env = ac.createGain();
+		env.gain.setValueAtTime(0.0001, when);
+		env.gain.linearRampToValueAtTime(Math.max(0.0002, peak), when + (isAbs ? 0.07 : 0.02));
+		env.gain.exponentialRampToValueAtTime(0.0001, when + dur);
+
+		sum.connect(env);
+		const pan = ac.createStereoPanner ? ac.createStereoPanner() : null;
+		if (pan) {
+			pan.pan.setValueAtTime(sp.curPan, when);
+			pan.pan.linearRampToValueAtTime(target, when + gap);
+			env.connect(pan);
+			pan.connect(bus);
+		} else {
+			env.connect(bus);
+		}
+		sp.curPan = target;
+
+		src.start(when);
+		src.stop(when + dur + 0.05);
+		wave.voice(env, when + dur + 0.05, src);
+	}
+
+	if (n.kind === 3 && n.refCh && n.passCh) {
+		spawn(n.refCh, n.dirOut, true);
+		spawn(n.passCh, n.dirIn, false);
+	} else if (n.refCh) {
+		spawn(n.refCh, n.dirOut, true);
+	} else {
+		spawn(n.ch, n.dirOut, true);
+	}
+}
+
 if (typeof module !== 'undefined') module.exports = {
 	pfPrismNote,
 	pfCometNote,
-	pfGrainsNote
+	pfGrainsNote,
+	pfSpectrumNote
 };
