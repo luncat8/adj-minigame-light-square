@@ -32,6 +32,12 @@ const DASH_PARTIAL = [0.16, 0.12];
 const DASH_BEAM = [0.2, 0.3];
 const DASH_PERIOD = 0.5;
 const BEAM_SPEED = 0.0018;
+// thin-core ray styles pushed by skins.js (0 lines, 1 fast long dashes, 2 short); the glow pass keeps its own flow
+const RAY_STYLES = [
+	{ dash: null, period: 0, speed: 0 },
+	{ dash: [0.35, 0.15], period: DASH_PERIOD, speed: 0.0045 },
+	{ dash: DASH_BEAM, period: DASH_PERIOD, speed: BEAM_SPEED }
+];
 
 const BOARD_EDGE = 'rgba(150,180,255,0.1)';
 const GLASS_FILL = 'rgba(150,180,255,0.06)';
@@ -46,6 +52,7 @@ let rCanv = null;
 let rCtx = null;
 let rCell = 0;
 let rSel = -1;
+let rRay = 2;
 let rRaf = 0;
 let rResize = null;
 const rView = { tiles: null, emitter: 0, seg: null, recv: null, overlays: null, result: null, previewing: false };
@@ -93,6 +100,10 @@ function glassView(v) {
 
 function glassSelect(ring) {
 	rSel = ring;
+}
+
+function glassSetRay(i) {
+	rRay = i;
 }
 
 function glassPoint(x, y) {
@@ -169,10 +180,9 @@ function drawGlass() {
 function drawBeams(t) {
 	rCtx.globalCompositeOperation = 'lighter';
 	rCtx.lineCap = 'butt';
-	rCtx.setLineDash(DASH_BEAM);
-	rCtx.lineDashOffset = -((t * BEAM_SPEED) % DASH_PERIOD);
 	const seg = rView.seg;
 	const ex = rView.emitter + 0.5;
+	const style = RAY_STYLES[rRay];
 	for (let ch = 0; ch < 3; ch++) {
 		rCtx.beginPath();
 		rCtx.moveTo(ex, rN - 0.5);
@@ -188,9 +198,18 @@ function drawBeams(t) {
 				rCtx.lineTo(x + STEP_X[d], y + STEP_Y[d]);
 			}
 		}
+		rCtx.setLineDash(DASH_BEAM);
+		rCtx.lineDashOffset = -((t * BEAM_SPEED) % DASH_PERIOD);
 		rCtx.strokeStyle = CH_GLOW[ch];
 		rCtx.lineWidth = 0.24;
 		rCtx.stroke();
+		if (style.dash) {
+			rCtx.setLineDash(style.dash);
+			rCtx.lineDashOffset = -((t * style.speed) % style.period);
+		} else {
+			rCtx.setLineDash(DASH_NONE);
+			rCtx.lineDashOffset = 0;
+		}
 		rCtx.strokeStyle = CH_CORE[ch];
 		rCtx.lineWidth = 0.075;
 		rCtx.stroke();
@@ -363,5 +382,6 @@ if (typeof module !== 'undefined') module.exports = {
 	glassStop,
 	glassView,
 	glassSelect,
+	glassSetRay,
 	glassPoint
 };

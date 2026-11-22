@@ -7,29 +7,48 @@
 <meta name="viewport" content="width=device-width, initial-scale=1">
 <title>Light Square</title>
 <style>
-	body { background: #000; color: #cfd6e4; font: 14px system-ui, sans-serif; margin: 0; padding: 12px; display: flex; flex-direction: column; align-items: center; gap: 10px; }
-	#canv { width: min(92vmin, 680px); aspect-ratio: 1; touch-action: none; }
+	body { background: #000; color: #cfd6e4; font: 14px system-ui, sans-serif; margin: 0; padding: 12px; display: flex; justify-content: center; }
+	#layout { display: flex; flex-direction: column; align-items: center; gap: 10px; width: 100%; }
+	#stage { display: flex; flex-direction: column; align-items: center; gap: 10px; width: 100%; min-width: 0; }
+	#side { display: flex; flex-wrap: wrap; gap: 14px; justify-content: center; align-items: flex-start; }
+	/* square kept by width-driven sizing; height caps keep readouts on screen */
+	#canv { width: min(100%, calc(100dvh - 120px)); aspect-ratio: 1; touch-action: none; }
 	#readout span { margin-right: 14px; }
 	#readout-generation { color: #8b93a7; text-align: center; max-width: 760px; }
 	input[type=number] { width: 4em; }
 	#readout-msg { color: #8b93a7; }
-	#panel { display: flex; flex-wrap: wrap; gap: 14px; justify-content: center; }
 	fieldset { border: 1px solid #2a2f3a; border-radius: 6px; display: flex; flex-wrap: wrap; gap: 8px; align-items: center; }
 	#rotation-controls { display: grid; grid-template-columns: repeat(2, auto); gap: 6px; }
 	.rotate-stack { display: flex; flex-direction: column; gap: 6px; align-items: flex-start; }
 	.laser-row { display: flex; gap: 8px; }
-	.side-stack { display: flex; flex-direction: column; gap: 14px; }
 	legend { color: #8b93a7; padding: 0 6px; }
 	button { background: #141821; color: #cfd6e4; border: 1px solid #2a2f3a; border-radius: 6px; padding: 6px 12px; }
 	button:active { background: #232a38; }
 	input[type=range] { width: 130px; }
+	/* wide landscape: control groups left, canvas fills the rest; narrow stays vertical with the canvas on top */
+	@media (orientation: landscape) and (min-width: 760px) and (min-height: 480px) {
+		#layout { flex-direction: row; gap: 24px; }
+		#stage { flex: 1; }
+		#side { order: -1; flex-direction: column; flex-wrap: nowrap; align-items: stretch; width: 330px; }
+		#side fieldset { justify-content: flex-start; }
+		#canv { width: min(100%, calc(100dvh - 104px)); }
+	}
 </style>
 </head>
 <body>
+<div id="layout">
+<div id="stage">
 <canvas id="canv"></canvas>
 <div id="readout" aria-live="polite"><span id="readout-pct">0%</span><span id="readout-msg"></span><span id="readout-rules"></span></div>
 <div id="readout-generation" aria-live="polite" title="Walk escape is a fixed random-walk probe, not a human skill rating."></div>
-<div id="panel">
+</div>
+<div id="side">
+<fieldset><legend>Hints</legend>
+<label><input type="checkbox" id="hint-current"> Current matches</label>
+<label><input type="checkbox" id="hint-discoveries"> Remember discoveries</label>
+<label><input type="checkbox" id="hint-targets"> Show targets</label>
+<button id="btn-preview">Preview (hold)</button>
+</fieldset>
 <fieldset><legend>Rotate squares · CCW / CW</legend>
 <div class="rotate-stack">
 <div id="rotation-controls">
@@ -48,16 +67,6 @@
 </div>
 </div>
 </fieldset>
-<div class="side-stack">
-<fieldset><legend>Look</legend>
-<select id="skin"><option value="glass">glass</option><option value="prototype">prototype</option></select>
-</fieldset>
-<fieldset><legend>Hints</legend>
-<label><input type="checkbox" id="hint-current"> Current matches</label>
-<label><input type="checkbox" id="hint-discoveries"> Remember discoveries</label>
-<label><input type="checkbox" id="hint-targets"> Show targets</label>
-<button id="btn-preview">Preview (hold)</button>
-</fieldset>
 <fieldset><legend>Puzzle · a change generates a new one</legend>
 <select id="rule-mode"><option value="0">quarter turns</option><option value="1">single slots</option></select>
 <label><input type="checkbox" id="rule-corner"> corners flip</label>
@@ -67,6 +76,10 @@
 <input type="range" id="difficulty" min="0" max="100" step="1" value="25" title="Seeks a harder fixed random-walk score, not a human skill rating.">
 <button id="btn-generate">Generate</button>
 <button id="btn-restart">Restart</button>
+</fieldset>
+<fieldset><legend>Look</legend>
+<select id="skin" title="Render skin: glass or prototype."><option value="glass">glass</option><option value="prototype">prototype</option></select>
+<label>ray <select id="ray" title="Thin beam core style; the soft glow stays as-is."><option value="lines">lines</option><option value="long">fast long dashes</option><option value="short" selected>short dashes</option></select></label>
 </fieldset>
 </div>
 </div>

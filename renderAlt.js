@@ -37,11 +37,18 @@ const aMask = [null,
 const aStepX = [0, 1, 0, -1];
 const aStepY = [-1, 0, 1, 0];
 const aTa = Math.PI * 2;
+// thin-core ray styles pushed by skins.js (0 lines, 1 fast long dashes, 2 short); glow passes stay solid as in the prototype
+const aRayStyles = [
+	{ dash: null, period: 0, speed: 0 },
+	{ dash: [0.35, 0.15], period: 0.5, speed: 0.0045 },
+	{ dash: [0.2, 0.3], period: 0.5, speed: 0.0018 }
+];
 
 let aCanv = null;
 let aCtx = null;
 let aCell = 0;
 let aSelRing = -1;
+let aRay = 2;
 let aRaf = 0;
 let aResize = null;
 let aBg = null;
@@ -78,6 +85,10 @@ function renderAltView(v) {
 
 function renderAltSetSelection(ring) {
 	aSelRing = ring;
+}
+
+function renderAltSetRay(i) {
+	aRay = i;
 }
 
 function renderAltPointToCell(x, y) {
@@ -130,7 +141,7 @@ function paintAlt(t) {
 	drawAltGlass(ctx);
 	drawAltReceivers(ctx);
 	aDrawRim(ctx, aView.result, aView.recv, aView.emitter, t);
-	drawAltBeams(ctx);
+	drawAltBeams(ctx, t);
 	drawAltLaser(ctx);
 	drawAltOverlays(ctx);
 	if (!aView.previewing) drawAltSelection(ctx);
@@ -158,6 +169,8 @@ function drawAltGrid(ctx) {
 
 function drawAltGlass(ctx) {
 	const tiles = aView.tiles;
+	const seg = aView.seg;
+	const recv = aView.recv;
 	const pad = 0.06;
 	const size = 1 - pad * 2;
 	const radius = 0.14;
@@ -177,6 +190,25 @@ function drawAltGlass(ctx) {
 			ctx.strokeStyle = border ? aBorderEdge : aGlassEdge;
 			ctx.lineWidth = 0.05;
 			ctx.stroke();
+			const i = r * aN + c;
+			let lit = 0;
+			if (border) {
+				lit = recv[i];
+			} else {
+				const k = i * 4;
+				lit = seg[k] | seg[k + 1] | seg[k + 2] | seg[k + 3];
+			}
+			if (lit) {
+				// whole-cell glow under the beam, ported from the prototype drawCells
+				ctx.globalCompositeOperation = 'lighter';
+				ctx.fillStyle = aMask[lit];
+				ctx.globalAlpha = border ? 0.24 : 0.1;
+				ctx.beginPath();
+				ctx.roundRect(x + pad * 0.4, y + pad * 0.4, 1 - pad * 0.8, 1 - pad * 0.8, radius);
+				ctx.fill();
+				ctx.globalAlpha = 1;
+				ctx.globalCompositeOperation = 'source-over';
+			}
 			if (border) continue;
 			if (r < aGlassOff || r >= aGlassOff + aGlass || c < aGlassOff || c >= aGlassOff + aGlass) continue;
 			const t = tiles[(r - aGlassOff) * aGlass + (c - aGlassOff)];
@@ -211,11 +243,12 @@ function drawAltGlass(ctx) {
 	}
 }
 
-// solid additive beams: wide glow, mid pass, thin core, per channel
-function drawAltBeams(ctx) {
+// solid additive beams: wide glow, mid pass, thin core, per channel; the ray style drives only the thin core
+function drawAltBeams(ctx, t) {
 	const seg = aView.seg;
 	if (!seg) return;
 	const ex = aView.emitter + 0.5;
+	const style = aRayStyles[aRay];
 	ctx.globalCompositeOperation = 'lighter';
 	for (let ch = 0; ch < 3; ch++) {
 		ctx.beginPath();
@@ -239,9 +272,17 @@ function drawAltBeams(ctx) {
 		ctx.globalAlpha = 0.34;
 		ctx.lineWidth = 0.12;
 		ctx.stroke();
+		if (style.dash) {
+			ctx.setLineDash(style.dash);
+			ctx.lineDashOffset = -((t * style.speed) % style.period);
+		}
 		ctx.globalAlpha = 0.95;
 		ctx.lineWidth = 0.035;
 		ctx.stroke();
+		if (style.dash) {
+			ctx.setLineDash([]);
+			ctx.lineDashOffset = 0;
+		}
 	}
 	ctx.globalAlpha = 1;
 	ctx.globalCompositeOperation = 'source-over';
@@ -437,5 +478,6 @@ if (typeof module !== 'undefined') module.exports = {
 	renderAltStop,
 	renderAltView,
 	renderAltSetSelection,
+	renderAltSetRay,
 	renderAltPointToCell
 };
