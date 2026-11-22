@@ -10,6 +10,9 @@ const rGlass = rBoard ? rBoard.GLASS : GLASS;
 const rGlassOff = rBoard ? rBoard.GLASS_OFF : GLASS_OFF;
 const rTileDiag = rBoard ? rBoard.TILE_DIAG : TILE_DIAG;
 const rRingSide = rBoard ? rBoard.RING_SIDE : RING_SIDE;
+const rGlyphs = rBoard ? rBoard.CELL_GLYPHS : CELL_GLYPHS;
+const rCellShade = rBoard ? rBoard.CELL_SHADE : CELL_SHADE;
+const rShadeSteps = rBoard ? rBoard.SHADE_STEPS : SHADE_STEPS;
 const rAny = rGoal ? rGoal.CONTRACT_ANY : CONTRACT_ANY;
 const rPartial = rGoal ? rGoal.CONTRACT_PARTIAL : CONTRACT_PARTIAL;
 const rMatch = rGoal ? rGoal.CONTRACT_MATCH : CONTRACT_MATCH;
@@ -32,21 +35,30 @@ const DASH_PARTIAL = [0.16, 0.12];
 const DASH_BEAM = [0.2, 0.3];
 const DASH_PERIOD = 0.5;
 const BEAM_SPEED = 0.0018;
-// thin-core ray styles pushed by skins.js (0 lines, 1 fast long dashes, 2 short); the glow pass keeps its own flow
+// thin-core ray styles pushed by skins.js (0 lines, 1 fast long dashes, 2 short); short omits glow so only dashes show
 const RAY_STYLES = [
-	{ dash: null, period: 0, speed: 0 },
-	{ dash: [0.35, 0.15], period: DASH_PERIOD, speed: 0.0045 },
-	{ dash: DASH_BEAM, period: DASH_PERIOD, speed: BEAM_SPEED }
+	{ dash: null, period: 0, speed: 0, glow: true, width: 0.075 },
+	{ dash: [0.35, 0.15], period: DASH_PERIOD, speed: 0.0045, glow: true, width: 0.075 },
+	{ dash: DASH_BEAM, period: DASH_PERIOD, speed: BEAM_SPEED, glow: false, width: 0.09 }
 ];
 
 const BOARD_EDGE = 'rgba(150,180,255,0.1)';
-const GLASS_FILL = 'rgba(150,180,255,0.06)';
-const GLASS_EDGE = 'rgba(150,180,255,0.16)';
+const GLASS_BASE = 'rgba(150,180,255,0.03)';
+const GLASS_EDGE = 'rgba(150,180,255,0.2)';
+const rGlassShades = Array.from({ length: rShadeSteps }, (_, i) =>
+	'rgba(155,188,255,' + (0.085 + (i / (rShadeSteps - 1)) * 0.08).toFixed(3) + ')');
 const SLOT_DIM = 'rgba(150,160,180,0.4)';
 const INK = 'rgba(236,240,248,0.9)';
 const INK_HALF = 'rgba(236,240,248,0.45)';
 const SEL_STYLE = 'rgba(236,240,248,0.38)';
 const TAU = Math.PI * 2;
+const rGlyphEm = 100;
+const rGlyphMaxW = 74;
+const rGlyphOff = 2.6;
+const rGlyphFont = '600 38px system-ui, "PingFang SC", "Microsoft YaHei", "Noto Sans CJK SC", "Noto Sans SC", "Kohinoor Devanagari", "Mangal", "Noto Sans Devanagari", sans-serif';
+const rReliefHi = 'rgba(220,238,255,0.3)';
+const rReliefLo = 'rgba(0,2,8,0.86)';
+const rReliefFace = 'rgba(165,195,250,0.18)';
 
 let rCanv = null;
 let rCtx = null;
@@ -55,7 +67,7 @@ let rSel = -1;
 let rRay = 2;
 let rRaf = 0;
 let rResize = null;
-const rView = { tiles: null, emitter: 0, seg: null, recv: null, overlays: null, result: null, previewing: false };
+const rView = { tiles: null, glyphs: null, shadeOff: 0, emitter: 0, seg: null, recv: null, overlays: null, result: null, previewing: false };
 const rPt = { row: 0, col: 0 };
 
 function glassInit(root) {
@@ -90,6 +102,8 @@ function sizeCanvas() {
 
 function glassView(v) {
 	rView.tiles = v.tiles;
+	rView.glyphs = v.glyphs || null;
+	rView.shadeOff = v.shadeOff || 0;
 	rView.emitter = v.emitter;
 	rView.seg = v.seg;
 	rView.recv = v.recv;
@@ -146,13 +160,50 @@ function paint(t) {
 	if (rView.previewing) drawPreviewTag();
 }
 
+function passGlassGlyphs(dx, dy, style) {
+	const glyphs = rView.glyphs;
+	rCtx.fillStyle = style;
+	for (let i = 0; i < rGlass * rGlass; i++) {
+		const r = (i / rGlass) | 0;
+		const c = i - r * rGlass;
+		const x = (rGlassOff + c + 0.5) * rGlyphEm + dx;
+		const y = (rGlassOff + r + 0.5) * rGlyphEm + dy;
+		rCtx.fillText(rGlyphs[glyphs ? glyphs[i] : i], x, y, rGlyphMaxW);
+	}
+}
+
+// 100x text transform avoids <1px shaping bugs in Devanagari/CJK; highlight -> shadow -> face carves low relief
+function drawGlassGlyphs() {
+	const orig = rCell * RIM_PAD;
+	const gs = rCell / rGlyphEm;
+	rCtx.setTransform(gs, 0, 0, gs, orig, orig);
+	rCtx.font = rGlyphFont;
+	rCtx.textAlign = 'center';
+	rCtx.textBaseline = 'middle';
+	passGlassGlyphs(-rGlyphOff, -rGlyphOff, rReliefHi);
+	passGlassGlyphs(rGlyphOff, rGlyphOff, rReliefLo);
+	passGlassGlyphs(0, 0, rReliefFace);
+	rCtx.setTransform(rCell, 0, 0, rCell, orig, orig);
+}
+
 function drawGlass() {
 	rCtx.globalCompositeOperation = 'source-over';
-	rCtx.fillStyle = GLASS_FILL;
+	rCtx.fillStyle = GLASS_BASE;
 	rCtx.fillRect(rGlassOff, rGlassOff, rGlass, rGlass);
+	const glyphs = rView.glyphs;
+	const shadeLen = rCellShade.length;
+	for (let r = 0; r < rGlass; r++) {
+		for (let c = 0; c < rGlass; c++) {
+			const gi = r * rGlass + c;
+			const id = glyphs ? glyphs[gi] : gi;
+			rCtx.fillStyle = rGlassShades[rCellShade[(id + rView.shadeOff) % shadeLen]];
+			rCtx.fillRect(rGlassOff + c + 0.02, rGlassOff + r + 0.02, 0.96, 0.96);
+		}
+	}
 	rCtx.strokeStyle = GLASS_EDGE;
 	rCtx.lineWidth = 0.06;
 	rCtx.strokeRect(rGlassOff + 0.03, rGlassOff + 0.03, rGlass - 0.06, rGlass - 0.06);
+	drawGlassGlyphs();
 	const tiles = rView.tiles;
 	for (let r = 0; r < rGlass; r++) {
 		for (let c = 0; c < rGlass; c++) {
@@ -176,10 +227,9 @@ function drawGlass() {
 	}
 }
 
-// butt caps join straddling dashes cleanly at cell centers without additive double-brightening
+// solid glow keeps turns smooth with round caps; dashed ray cores switch to butt caps so straddling dashes join cleanly
 function drawBeams(t) {
 	rCtx.globalCompositeOperation = 'lighter';
-	rCtx.lineCap = 'butt';
 	const seg = rView.seg;
 	const ex = rView.emitter + 0.5;
 	const style = RAY_STYLES[rRay];
@@ -198,24 +248,27 @@ function drawBeams(t) {
 				rCtx.lineTo(x + STEP_X[d], y + STEP_Y[d]);
 			}
 		}
-		rCtx.setLineDash(DASH_BEAM);
-		rCtx.lineDashOffset = -((t * BEAM_SPEED) % DASH_PERIOD);
-		rCtx.strokeStyle = CH_GLOW[ch];
-		rCtx.lineWidth = 0.24;
-		rCtx.stroke();
+		if (style.glow) {
+			rCtx.lineCap = 'round';
+			rCtx.strokeStyle = CH_GLOW[ch];
+			rCtx.lineWidth = 0.24;
+			rCtx.stroke();
+		}
 		if (style.dash) {
+			rCtx.lineCap = 'butt';
 			rCtx.setLineDash(style.dash);
 			rCtx.lineDashOffset = -((t * style.speed) % style.period);
 		} else {
+			rCtx.lineCap = 'round';
+		}
+		rCtx.strokeStyle = CH_CORE[ch];
+		rCtx.lineWidth = style.width;
+		rCtx.stroke();
+		if (style.dash) {
 			rCtx.setLineDash(DASH_NONE);
 			rCtx.lineDashOffset = 0;
 		}
-		rCtx.strokeStyle = CH_CORE[ch];
-		rCtx.lineWidth = 0.075;
-		rCtx.stroke();
 	}
-	rCtx.setLineDash(DASH_NONE);
-	rCtx.lineDashOffset = 0;
 	rCtx.lineCap = 'round';
 }
 

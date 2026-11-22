@@ -41,8 +41,9 @@ const live = {
 	progress: null,
 	previewResult: null,
 	previewing: false,
+	witnessGlyphs: null,
 	// persistent view handed to the renderer; only refs and scalars change
-	view: { tiles: null, emitter: 0, seg: null, recv: null, overlays: null, result: null, previewing: false }
+	view: { tiles: null, glyphs: null, shadeOff: 0, emitter: 0, seg: null, recv: null, overlays: null, result: null, previewing: false }
 };
 
 function gameControlValue(raw, fallback, min, max) {
@@ -88,6 +89,12 @@ function startPuzzle(cand) {
 	p.tiles.set(cand.start);
 	p.emitter = cand.startEmitter;
 	fCommit(p);
+	const w = fCreate(cand.mode, cand.corner);
+	w.glyphs.set(p.glyphs);
+	for (const m of cand.solution) {
+		if (m.r !== undefined) fShift(w, m.r, m.d);
+	}
+	live.witnessGlyphs = w.glyphs;
 	live.puzzle = p;
 	live.progress = fProgress(cand.contract);
 	refresh();
@@ -105,6 +112,8 @@ function refresh() {
 function publishView() {
 	const v = live.view;
 	v.tiles = live.previewing ? live.gen.witness : live.puzzle.tiles;
+	v.glyphs = live.previewing ? live.witnessGlyphs : live.puzzle.glyphs;
+	v.shadeOff = live.gen.seed % 50;
 	v.emitter = live.previewing ? live.gen.witnessEmitter : live.puzzle.emitter;
 	v.seg = segBuf();
 	v.recv = recvBuf();

@@ -51,7 +51,7 @@ getObj().data().action()
 
 - keep this map updated when ownership changes:
 	index.html — owns canvas root, controls and script load order. edit for load order and markup.
-	board.js — owns geometry, ring strides, player moves, emitter. edit for stride table, corner rule, center flip, emitter range.
+	board.js — owns geometry, ring strides, cell relief glyph map, player moves, emitter. edit for stride table, corner rule, center flip, cell glyph table, emitter range.
 	trace.js — owns light transport trace and buffers. edit for propagation rules, mirror splits.
 	contract.js — owns secret contracts, scoring, allocation-free win predicate and discovery history. edit for quotas, colors and feedback.
 	difficulty.js — owns fixed-budget walk score and bounded shortest-solve BFS diagnostics. edit for walk budget, action graph, BFS cap and turn tables.
@@ -147,7 +147,7 @@ getObj().data().action()
 
 0.1–0.6 implemented. Play surface animates short directed beam dashes from emitter to receiver and paints reactive rim items in `RIM_PAD` margin (`rim.js` via `render.js`), each lit receiver wired to its side item with a bottom power cell, driven by `contractState(result)` without touching trace or scoring. `dom_smoke.js` covers handlers, rim states and shared classic-script scope; L2 = all seven fixture scripts whenever `index.html` or load order changes.
 0.9 done: render is an optional skin behind `skins.js`; two skins ship — `render.js` (glass, default) and `renderAlt.js` (prototype, adopted from the old prototype render, now also rendering the 0.6 rim items). Look `<select>` switches at runtime without touching the puzzle or progress; `skin_fixtures.js` covers the dispatch, prototype paint and rim adoption.
-0.9.2 done: prototype skin ports the whole-cell glow under the beam (alpha 0.1 glass / 0.24 border). A `ray` select (lines / fast long dashes / short) drives the thin beam core in both skins via the same `setRay` push as selection; glow passes stay as-is. The canvas fills the viewport with CSS width-driven sizing, square via aspect-ratio.
+0.9.2–0.9.5 done: prototype skin ports the whole-cell glow under the beam (alpha 0.1 glass / 0.24 border). A `ray` select (lines / fast long dashes / short) drives the thin beam core in both skins; glass mode draws solid glow in `lines`/`long` and omits glow in `short` (dashes only). All 49 rotatable glass cells use lighter per-cell varied shades (`CELL_SHADE`) and dim 3-pass relief Chinese/Hindi light-and-optics glyphs (`CELL_GLYPHS` in `board.js`) that permute with ring moves and preview. The canvas fills the viewport with CSS width-driven sizing, square via aspect-ratio.
 0.8 step 1 done: `generate(seed, mode, corner, difficulty, mirrorCount = 11)` samples exact counts via `profile()`; fallback is the verified per-count catalog in `presets.js`.
 0.8 steps 2–3 done: `contractWon` (contract.js), `measureWalks` and diagnostic `shortestSolve` (difficulty.js); generation selects the closest walk score from up to 8 verified candidates under one attempt budget, with isolated measurement streams and result metadata.
 0.8 step 4 done: exact-count and continuous difficulty controls default to 11/49 and 25/100; committed changes to any setting regenerate immediately (input events only relabel); game.js reports active metadata/preset status.

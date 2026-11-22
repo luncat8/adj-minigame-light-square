@@ -217,12 +217,14 @@ const resultRef = progressRef.result;
 els['btn-preview'].fire('pointerenter');
 c.ok(game.gamePreviewing(), 'preview starts on hover');
 c.eq(live().view.tiles, live().gen.witness, 'preview shows witness tiles');
+c.eq(live().view.glyphs, live().witnessGlyphs, 'preview shows witness glyphs');
 c.eq(goal.contractState(live().view.result), goal.CONTRACT_MATCH, 'preview publishes met item state');
 pump(1, 240);
 c.ok(drawnTexts.includes('成功') && drawnTexts.includes('PREVIEW'), 'preview paints met rim billboard and tag');
 els['btn-preview'].fire('pointerleave');
 c.ok(!game.gamePreviewing(), 'preview ends on leave');
 c.eq(live().view.tiles, live().puzzle.tiles, 'preview end restores live tiles');
+c.eq(live().view.glyphs, live().puzzle.glyphs, 'preview end restores live glyphs');
 c.eq(live().view.result, resultRef, 'preview end restores live item state');
 c.ok(sameArr(recvBefore, trace.traceRecv), 'preview end restores live trace');
 c.eq(progressRef.result, resultRef, 'preview leaves progress untouched');
@@ -251,6 +253,7 @@ for (const m of live().gen.solution) {
 	else game.gameSetEmitter(live().puzzle.emitter + m.e);
 }
 c.ok(live().progress.result.won, 'replaying the witness wins');
+c.ok(sameArr(live().puzzle.glyphs, live().witnessGlyphs), 'replaying the witness aligns cell glyphs with preview');
 c.eq(global.document.getElementById('readout-pct').textContent, '100%', 'percent reads 100 on win');
 c.eq(global.document.getElementById('readout-msg').textContent, 'solved', 'solved readout on win');
 els['btn-preview'].fire('pointerenter');

@@ -165,6 +165,28 @@ for (let m = 0; m < 2; m++) {
 const clearC = board.createPuzzle(board.MODE_QUARTER, true);
 board.shiftRing(clearC, 3, 1);
 c.eq(clearC.tiles[board.CENTER_CELL], 0, 'clear center stays clear');
+c.eq(clearC.glyphs[board.CENTER_CELL], board.GLYPH_CENTER_ALT, 'clear center still flips its relief glyph');
+board.shiftRing(clearC, 3, -1);
+c.eq(clearC.glyphs[board.CENTER_CELL], board.CENTER_CELL, 'second center flip restores center glyph');
+
+// cell relief glyphs: 25 Chinese + 25 Hindi distinct symbols, script-swapping across quarter turns, reversible and restartable
+c.eq(board.CELL_GLYPHS.length, 50, '50 cell glyph entries (49 cells + center flip)');
+c.eq(new Set(board.CELL_GLYPHS).size, 50, 'every cell glyph is distinct');
+c.eq(board.CELL_GLYPHS.filter(g => /[\u4e00-\u9fff]/.test(g)).length, 25, '25 Chinese light/mirror glyphs');
+c.eq(board.CELL_GLYPHS.filter(g => /[\u0900-\u097f]/.test(g)).length, 25, '25 Hindi light/mirror glyphs');
+for (let r = 0; r < 3; r++) {
+	const gp = board.createPuzzle(board.MODE_QUARTER, false);
+	board.shiftRing(gp, r, 1);
+	let swapped = true;
+	for (const cell of board.RING_CELLS[r]) {
+		const wasHi = /[\u0900-\u097f]/.test(board.CELL_GLYPHS[cell]);
+		const nowHi = /[\u0900-\u097f]/.test(board.CELL_GLYPHS[gp.glyphs[cell]]);
+		if (wasHi === nowHi) swapped = false;
+	}
+	c.ok(swapped, 'quarter turn swaps script on every ring ' + r + ' cell');
+	for (let i = 0; i < 3; i++) board.shiftRing(gp, r, 1);
+	c.same(gp.glyphs, gp.startGlyphs, 'quarter lap restores glyphs r=' + r);
+}
 
 // outer ring moves leave the center alone
 const ringC = puzzle(board.MODE_QUARTER, true);
@@ -190,14 +212,18 @@ board.setEmitter(em, 0);
 c.eq(em.emitter, 1, 'set clamps low');
 
 const rs = puzzle(board.MODE_SINGLE, true);
+board.shiftRing(rs, 1, 1);
 rs.tiles[0] = 0;
 rs.emitter = 3;
 board.commitStart(rs);
+const committedGlyph8 = rs.glyphs[8];
 rs.tiles[48] = 0;
 rs.emitter = 9;
+board.shiftRing(rs, 1, 1);
 board.restartPuzzle(rs);
 c.eq(rs.emitter, 3, 'restart restores emitter');
 c.eq(rs.tiles[0], 0, 'restart keeps committed tiles');
+c.eq(rs.glyphs[8], committedGlyph8, 'restart restores committed glyphs');
 c.eq(rs.tiles[48], freshTiles()[48], 'restart drops later edits');
 
 c.report('move_fixtures');

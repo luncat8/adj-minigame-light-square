@@ -1,10 +1,12 @@
-// owns: board geometry, ring strides and player moves
-// edit for: stride table, corner rule, center flip, emitter range
+// owns: board geometry, ring strides, cell relief glyph map and player moves
+// edit for: stride table, corner rule, center flip, cell glyph table, emitter range
 
 const BOARD_N = 15;
 const GLASS = 7;
 const GLASS_OFF = 4;
 const CENTER_CELL = (GLASS * GLASS) >> 1;
+const GLYPH_CENTER_ALT = GLASS * GLASS;
+const SHADE_STEPS = 16;
 const MODE_QUARTER = 0;
 const MODE_SINGLE = 1;
 // tile bits: 0-2 reflect mask (0 = clear), 3 = diagonal (0 '/', 1 '\')
@@ -14,6 +16,14 @@ const EMITTER_MAX = 13;
 const EMITTER_MID = 7;
 
 const RING_SIDE = [7, 5, 3, 1];
+const GLYPH_ZH = [
+	'日', '阳', '明', '旭', '晃', '晖', '映', '照', '影', '镜', '棱', '晶',
+	'玻', '璃', '激', '束', '射', '折', '线', '芒', '辉', '烁', '炫', '虹', '光'
+];
+const GLYPH_HI = [
+	'रवि', 'भानु', 'अर्क', 'तेज', 'आभा', 'प्रभा', 'द्युति', 'ज्योति', 'दीप्ति', 'अंशु', 'रश्मि', 'किरण',
+	'भास', 'बिंब', 'छाया', 'दर्पण', 'काँच', 'मणि', 'वर्ण', 'रंग', 'दीप', 'शिखा', 'कांति', 'ऊर्जा', 'सूर्य'
+];
 
 function buildRing(side) {
 	const cells = new Int8Array(4 * (side - 1));
@@ -29,6 +39,38 @@ function buildRing(side) {
 
 const RING_CELLS = RING_SIDE.map(buildRing);
 const ringScratch = new Int8Array(24);
+
+// alternates Chinese and Hindi along edges and across quarter-turn images so both 1-slot and quarter moves visibly swap glyphs
+function buildCellGlyphs() {
+	const out = new Array(GLYPH_CENTER_ALT + 1);
+	let zh = 0;
+	let hi = 0;
+	for (let r = 0; r < 3; r++) {
+		const cells = RING_CELLS[r];
+		const edge = RING_SIDE[r] - 1;
+		for (let s = 0; s < cells.length; s++) {
+			const useHi = (((s / edge) | 0) + (s & 1)) & 1;
+			out[cells[s]] = useHi ? GLYPH_HI[hi++] : GLYPH_ZH[zh++];
+		}
+	}
+	out[CENTER_CELL] = GLYPH_ZH[zh];
+	out[GLYPH_CENTER_ALT] = GLYPH_HI[hi];
+	return out;
+}
+
+const CELL_GLYPHS = buildCellGlyphs();
+
+function buildCellShade() {
+	const out = new Uint8Array(GLYPH_CENTER_ALT + 1);
+	for (let i = 0; i < out.length; i++) {
+		let h = Math.imul(i + 1, 0x9e3779b1) >>> 0;
+		h = Math.imul(h ^ (h >>> 16), 0x85ebca6b) >>> 0;
+		out[i] = ((h ^ (h >>> 13)) >>> 0) % SHADE_STEPS;
+	}
+	return out;
+}
+
+const CELL_SHADE = buildCellShade();
 
 // rotation only; diagonal flips belong to shiftRing
 function permuteRing(arr, ring, step) {
@@ -59,16 +101,25 @@ function flipDiag(tiles, cell) {
 	if (t & 7) tiles[cell] = t ^ TILE_DIAG;
 }
 
+function flipCenterGlyph(glyphs) {
+	glyphs[CENTER_CELL] = glyphs[CENTER_CELL] === CENTER_CELL ? GLYPH_CENTER_ALT : CENTER_CELL;
+}
+
 function shiftRing(puzzle, ring, dir) {
 	const side = RING_SIDE[ring];
-	if (side === 1) return flipDiag(puzzle.tiles, CENTER_CELL);
+	if (side === 1) {
+		if (puzzle.glyphs) flipCenterGlyph(puzzle.glyphs);
+		return flipDiag(puzzle.tiles, CENTER_CELL);
+	}
 	const cells = RING_CELLS[ring];
 	if (puzzle.corner) {
 		for (let s = 0; s < cells.length; s++) {
 			if (crossesMarked(s, side, puzzle.mode, dir)) flipDiag(puzzle.tiles, cells[s]);
 		}
 	}
-	permuteRing(puzzle.tiles, ring, dir * stepSlots(puzzle.mode, side));
+	const step = dir * stepSlots(puzzle.mode, side);
+	permuteRing(puzzle.tiles, ring, step);
+	if (puzzle.glyphs) permuteRing(puzzle.glyphs, ring, step);
 }
 
 function stepEmitter(puzzle, dir) {
@@ -80,11 +131,19 @@ function setEmitter(puzzle, col) {
 }
 
 function createPuzzle(mode, corner) {
+	const glyphs = new Uint8Array(GLASS * GLASS);
+	const startGlyphs = new Uint8Array(GLASS * GLASS);
+	for (let i = 0; i < glyphs.length; i++) {
+		glyphs[i] = i;
+		startGlyphs[i] = i;
+	}
 	return {
 		mode,
 		corner,
 		tiles: new Uint8Array(GLASS * GLASS),
 		start: new Uint8Array(GLASS * GLASS),
+		glyphs,
+		startGlyphs,
 		emitter: EMITTER_MID,
 		startEmitter: EMITTER_MID
 	};
@@ -92,11 +151,13 @@ function createPuzzle(mode, corner) {
 
 function commitStart(puzzle) {
 	puzzle.start.set(puzzle.tiles);
+	if (puzzle.glyphs && puzzle.startGlyphs) puzzle.startGlyphs.set(puzzle.glyphs);
 	puzzle.startEmitter = puzzle.emitter;
 }
 
 function restartPuzzle(puzzle) {
 	puzzle.tiles.set(puzzle.start);
+	if (puzzle.glyphs && puzzle.startGlyphs) puzzle.glyphs.set(puzzle.startGlyphs);
 	puzzle.emitter = puzzle.startEmitter;
 }
 
@@ -105,6 +166,10 @@ if (typeof module !== 'undefined') module.exports = {
 	GLASS,
 	GLASS_OFF,
 	CENTER_CELL,
+	GLYPH_CENTER_ALT,
+	SHADE_STEPS,
+	CELL_GLYPHS,
+	CELL_SHADE,
 	MODE_QUARTER,
 	MODE_SINGLE,
 	TILE_DIAG,
