@@ -51,14 +51,22 @@ show % of solved task with some hints like some cells not lit, colors wrong
 
 but fancy squares and light
 
+make ray dashes animate movement rom laser emitter to target and somewhat shorter to easy visually defer from mirrors
 
 ## settings
+
+mirrors number should be option like 11/49 and default should not be big, because big umber make it very difficult for human
 
 ### Deferred, low priority:
 
 laser width from thin (visually) to 3 cells (light in all 3).
 
+
+## signaling items to show progress
+
 make some out of border of the square - interesting items that will be activated once proper laser light on it. to visually make interesting goal to reach. Examples: long tube with boiling water, lamp, detector, magic crystal, neon chinese billboard.
+visually wired or connected to target cells. typically correspond to target cell on it side. and add some item for bottom side
+
 
 ## low priority
 

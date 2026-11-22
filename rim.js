@@ -1,5 +1,5 @@
-// owns: out-of-border rim items (boiler, lamp, neon billboard, crystal, detector, emitter rail)
-// edit for: rim item visuals, animations and contract-state reactions
+// owns: out-of-border rim items (boiler, lamp, neon billboard, crystal, detector, power cell, emitter rail) and receiver-to-item wiring
+// edit for: rim item visuals, animations, wiring and contract-state reactions
 
 const mBoard = typeof module !== 'undefined' && module.exports ? require('./board.js') : null;
 const mGoal = typeof module !== 'undefined' && module.exports ? require('./contract.js') : null;
@@ -54,6 +54,8 @@ function drawRimItems(ctx, res, recv, emitter, t) {
 	drawCrystal(ctx, state, mask, t);
 	drawDetector(ctx, state, pct, forbid, t);
 	drawEmitterRail(ctx, emitter);
+	drawPowerCell(ctx, state, pct, forbid, t);
+	drawWires(ctx, recv, state);
 	ctx.globalCompositeOperation = 'source-over';
 	ctx.globalAlpha = 1;
 }
@@ -293,6 +295,159 @@ function drawEmitterRail(ctx, emitter) {
 	ctx.beginPath();
 	ctx.arc(emitter + 0.5, 15.32, 0.1, 0, RIM_TAU);
 	ctx.fill();
+}
+
+function drawPowerCell(ctx, state, pct, forbid, t) {
+	ctx.globalCompositeOperation = 'source-over';
+	ctx.fillStyle = RIM_PANEL;
+	ctx.fillRect(6.3, 15.45, 2.4, 0.9);
+	ctx.strokeStyle = RIM_EDGE;
+	ctx.lineWidth = 0.06;
+	ctx.strokeRect(6.3, 15.45, 2.4, 0.9);
+	ctx.fillStyle = RIM_DIM;
+	ctx.fillRect(7.35, 15.32, 0.3, 0.13);
+	const litSeg = state === mMatch ? 5 : state === mPartial ? Math.max(1, Math.min(4, Math.ceil(pct / 20))) : 0;
+	const segCol = state === mMatch ? BAR_OK : forbid ? NEON_WARN : BAR_PART;
+	for (let s = 0; s < 5; s++) {
+		const sx = 6.42 + s * 0.44;
+		if (s < litSeg) {
+			ctx.fillStyle = segCol;
+			ctx.fillRect(sx, 15.57, 0.4, 0.66);
+		} else {
+			ctx.strokeStyle = RIM_DIM;
+			ctx.strokeRect(sx, 15.57, 0.4, 0.66);
+		}
+	}
+	if (state !== mMatch) return;
+	ctx.globalCompositeOperation = 'lighter';
+	ctx.globalAlpha = 0.35 + Math.sin(t * 0.006) * 0.15;
+	ctx.fillStyle = BAR_OK;
+	ctx.fillRect(6.3, 15.45, 2.4, 0.9);
+	ctx.globalAlpha = 1;
+}
+
+function wireH(ctx, y, x0, x1, col) {
+	ctx.strokeStyle = col;
+	ctx.beginPath();
+	ctx.moveTo(x0, y);
+	ctx.lineTo(x1, y);
+	ctx.stroke();
+}
+
+function wireV(ctx, x, y0, y1, col) {
+	ctx.strokeStyle = col;
+	ctx.beginPath();
+	ctx.moveTo(x, y0);
+	ctx.lineTo(x, y1);
+	ctx.stroke();
+}
+
+// lit receivers only, so hidden targets never leak; each side buses to its item center
+function drawWires(ctx, recv, state) {
+	ctx.globalCompositeOperation = state === mMatch ? 'lighter' : 'source-over';
+	ctx.lineWidth = 0.07;
+	let lampMask = 0;
+	let billMask = 0;
+	let crysMask = 0;
+	let leftMask = 0;
+	let rightMask = 0;
+	let botMask = 0;
+	let lampMin = 99;
+	let lampMax = -99;
+	let billMin = 99;
+	let billMax = -99;
+	let crysMin = 99;
+	let crysMax = -99;
+	let leftMin = 99;
+	let leftMax = -99;
+	let rightMin = 99;
+	let rightMax = -99;
+	let botMin = 99;
+	let botMax = -99;
+	for (let c = 1; c < mN - 1; c++) {
+		const bits = recv[c];
+		if (!bits) continue;
+		const x = c + 0.5;
+		wireV(ctx, x, 0.18, -0.1, RIM_MASK[bits]);
+		if (c <= 3) {
+			lampMask |= bits;
+			if (x < lampMin) lampMin = x;
+			if (x > lampMax) lampMax = x;
+		} else if (c <= 11) {
+			billMask |= bits;
+			if (x < billMin) billMin = x;
+			if (x > billMax) billMax = x;
+		} else {
+			crysMask |= bits;
+			if (x < crysMin) crysMin = x;
+			if (x > crysMax) crysMax = x;
+		}
+	}
+	for (let c = 1; c < mN - 1; c++) {
+		const bits = recv[(mN - 1) * mN + c];
+		if (!bits) continue;
+		const x = c + 0.5;
+		wireV(ctx, x, 14.82, 15.16, RIM_MASK[bits]);
+		botMask |= bits;
+		if (x < botMin) botMin = x;
+		if (x > botMax) botMax = x;
+	}
+	for (let r = 1; r < mN - 1; r++) {
+		const bits = recv[r * mN];
+		if (!bits) continue;
+		const y = r + 0.5;
+		wireH(ctx, y, 0.18, -0.18, RIM_MASK[bits]);
+		leftMask |= bits;
+		if (y < leftMin) leftMin = y;
+		if (y > leftMax) leftMax = y;
+	}
+	for (let r = 1; r < mN - 1; r++) {
+		const bits = recv[r * mN + mN - 1];
+		if (!bits) continue;
+		const y = r + 0.5;
+		wireH(ctx, y, 14.82, 15.09, RIM_MASK[bits]);
+		rightMask |= bits;
+		if (y < rightMin) rightMin = y;
+		if (y > rightMax) rightMax = y;
+	}
+	if (lampMask) {
+		if (2.2 < lampMin) lampMin = 2.2;
+		if (2.2 > lampMax) lampMax = 2.2;
+		wireH(ctx, -0.1, lampMin, lampMax, RIM_MASK[lampMask]);
+		wireV(ctx, 2.2, -0.1, -0.66, RIM_MASK[lampMask]);
+	}
+	if (billMask) {
+		if (7.5 < billMin) billMin = 7.5;
+		if (7.5 > billMax) billMax = 7.5;
+		wireH(ctx, -0.1, billMin, billMax, RIM_MASK[billMask]);
+		wireV(ctx, 7.5, -0.1, -0.73, RIM_MASK[billMask]);
+	}
+	if (crysMask) {
+		if (12.8 < crysMin) crysMin = 12.8;
+		if (12.8 > crysMax) crysMax = 12.8;
+		wireH(ctx, -0.1, crysMin, crysMax, RIM_MASK[crysMask]);
+		wireV(ctx, 12.8, -0.1, -0.7, RIM_MASK[crysMask]);
+	}
+	if (leftMask) {
+		if (7.5 < leftMin) leftMin = 7.5;
+		if (7.5 > leftMax) leftMax = 7.5;
+		wireV(ctx, -0.18, leftMin, leftMax, RIM_MASK[leftMask]);
+		wireH(ctx, 7.5, -0.18, -0.77, RIM_MASK[leftMask]);
+	}
+	if (rightMask) {
+		if (7.5 < rightMin) rightMin = 7.5;
+		if (7.5 > rightMax) rightMax = 7.5;
+		wireV(ctx, 15.09, rightMin, rightMax, RIM_MASK[rightMask]);
+		wireH(ctx, 7.5, 15.09, 15.74, RIM_MASK[rightMask]);
+	}
+	if (botMask) {
+		if (7.5 < botMin) botMin = 7.5;
+		if (7.5 > botMax) botMax = 7.5;
+		wireH(ctx, 15.16, botMin, botMax, RIM_MASK[botMask]);
+		wireV(ctx, 7.5, 15.16, 15.9, RIM_MASK[botMask]);
+	}
+	ctx.globalCompositeOperation = 'source-over';
+	ctx.globalAlpha = 1;
 }
 
 if (typeof module !== 'undefined') module.exports = { drawRimItems };

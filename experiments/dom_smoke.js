@@ -9,6 +9,7 @@ const board = require('../board.js');
 const trace = require('../trace.js');
 const goal = require('../contract.js');
 const render = require('../render.js');
+const rim = require('../rim.js');
 const game = require('../game.js');
 const gen = require('../generate.js');
 
@@ -400,6 +401,81 @@ $('hint-targets').checked = false;
 els['hint-targets'].fire('change');
 c.ok(!live().view.overlays.targets, 'targets overlay hides');
 c.eq(goal.contractState(live().view.result), goal.CONTRACT_MATCH, 'hint hide keeps item state');
+
+// 0.6 wiring + bottom power cell: lit-only stubs/buses/drops and charge segments
+const segLog = [];
+const fillLog = [];
+const strokeRectLog = [];
+const rimCtx = {
+	globalCompositeOperation: '',
+	globalAlpha: 1,
+	strokeStyle: '',
+	fillStyle: '',
+	lineWidth: 0,
+	font: '',
+	textAlign: '',
+	textBaseline: '',
+	_mx: 0,
+	_my: 0,
+	beginPath() {},
+	moveTo(x, y) { this._mx = x; this._my = y; },
+	lineTo(x, y) { segLog.push([this._mx, this._my, x, y]); },
+	stroke() {},
+	fillRect(x, y, w, h) { fillLog.push([x, y, w, h]); },
+	strokeRect(x, y, w, h) { strokeRectLog.push([x, y, w, h]); },
+	arc() {},
+	closePath() {},
+	fill() {},
+	fillText() {}
+};
+function hasSeg(x0, y0, x1, y1) {
+	for (let i = 0; i < segLog.length; i++) {
+		const s = segLog[i];
+		if (s[0] === x0 && s[1] === y0 && s[2] === x1 && s[3] === y1) return true;
+	}
+	return false;
+}
+function hasRect(log, x, y, w, h) {
+	for (let i = 0; i < log.length; i++) {
+		const r = log[i];
+		if (r[0] === x && r[1] === y && r[2] === w && r[3] === h) return true;
+	}
+	return false;
+}
+const idleRes = { percent: 0, forbiddenLight: false, won: false, matches: 0, wrongColor: false };
+const partRes = { percent: 50, forbiddenLight: false, won: false, matches: 1, wrongColor: false };
+const metRes = { percent: 100, forbiddenLight: false, won: true, matches: 1, wrongColor: false };
+segLog.length = 0; fillLog.length = 0; strokeRectLog.length = 0;
+rim.drawRimItems(rimCtx, idleRes, new Uint8Array(225), 7, 0);
+c.ok(!hasSeg(5.5, 14.82, 5.5, 15.16), 'unlit bottom receiver has no wire stub');
+c.ok(hasRect(fillLog, 6.3, 15.45, 2.4, 0.9), 'bottom power cell panel paints when idle');
+c.ok(hasRect(strokeRectLog, 6.42, 15.57, 0.4, 0.66), 'idle power cell segments stay uncharged');
+const botRecv = new Uint8Array(225);
+botRecv[14 * 15 + 5] = 7;
+segLog.length = 0; fillLog.length = 0; strokeRectLog.length = 0;
+rim.drawRimItems(rimCtx, partRes, botRecv, 7, 0);
+c.ok(hasSeg(5.5, 14.82, 5.5, 15.16), 'lit bottom receiver wires to bottom bus');
+c.ok(hasSeg(5.5, 15.16, 7.5, 15.16), 'bottom bus runs to power cell');
+c.ok(hasSeg(7.5, 15.16, 7.5, 15.9), 'bottom bus drops into power cell');
+c.ok(hasRect(fillLog, 6.42, 15.57, 0.4, 0.66), 'partial power cell charges first segment');
+const sideRecv = new Uint8Array(225);
+sideRecv[2] = 1;
+sideRecv[7] = 2;
+sideRecv[13] = 4;
+sideRecv[5 * 15] = 3;
+sideRecv[5 * 15 + 14] = 5;
+segLog.length = 0; fillLog.length = 0; strokeRectLog.length = 0;
+rim.drawRimItems(rimCtx, metRes, sideRecv, 7, 0);
+c.ok(hasSeg(2.5, 0.18, 2.5, -0.1), 'lit top lamp receiver wires to lamp bus');
+c.ok(hasSeg(7.5, 0.18, 7.5, -0.1), 'lit top billboard receiver wires to billboard bus');
+c.ok(hasSeg(13.5, 0.18, 13.5, -0.1), 'lit top crystal receiver wires to crystal bus');
+c.ok(hasSeg(0.18, 5.5, -0.18, 5.5), 'lit left receiver wires to boiler bus');
+c.ok(hasSeg(14.82, 5.5, 15.09, 5.5), 'lit right receiver wires to detector bus');
+c.ok(hasSeg(2.2, -0.1, 2.2, -0.66), 'lamp bus drops into lamp');
+c.ok(hasSeg(7.5, -0.1, 7.5, -0.73), 'billboard bus drops into billboard');
+c.ok(hasSeg(12.8, -0.1, 12.8, -0.7), 'crystal bus drops into crystal');
+c.ok(hasSeg(-0.18, 7.5, -0.77, 7.5), 'boiler bus drops into boiler');
+c.ok(hasSeg(15.09, 7.5, 15.74, 7.5), 'detector bus drops into detector');
 
 // classic-script lexical scope check: load all index.html scripts in index.html order in one shared vm context
 const rootDir = path.join(__dirname, '..');

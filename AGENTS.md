@@ -58,7 +58,7 @@ getObj().data().action()
 	hints.js — owns hint checkbox state and renderer-facing overlay selection. edit for visibility and preview suppression.
 	presets.js — owns compact count-preserving fallback templates and their decoding. edit for template codec; data is rebuilt by experiments/build_presets.js.
 	generate.js — owns solvable generation, dial profile, walk-score selection and verified count-specific fallback. edit for sampling, profile anchors, scramble policy, candidate selection and metadata.
-	rim.js — owns out-of-border rim items (boiler, lamp, billboard, crystal, detector, rail). edit for rim visuals and state animations.
+	rim.js — owns out-of-border rim items (boiler, lamp, billboard, crystal, detector, power cell, rail) and receiver-to-item wiring. edit for rim visuals, wiring and state animations.
 	render.js — owns canvas painting of pose, animated beams, receivers, overlays and sizing. edit for board visuals, dash motion, overlay shapes.
 	game.js — owns live puzzle/progress state, normalized generation settings, preview switching and active readouts. edit for game flow, settings normalization and wording.
 	input.js — owns pointer, wheel, drag gestures, ring keys, bindings, setting labels and regenerate-on-change triggers. edit for bindings, labels, drag tuning and hit rules.
@@ -84,13 +84,13 @@ getObj().data().action()
 ## plans
 
 - plan*.md is NOT the implementation log. final plan = standalone design artifact, written as if implemented today: no references to chat, to what was tried, or to what was done. usable for a fork or reimplementation.
-- plan numbers (0.1, gui.1) identify subjects, not version or execution order. ok to continue old numbers by subject and implement in any useful order.
-- drafts (0.1.x-draft.md) — human thoughts about goals and design. user prompts may be stored as drafts to keep a reference of the global task.
+- plan files are `<number>-<topic>-plan.md` (e.g. `0.6-Out-of-border-items-plan.md`); numbers (0.1, gui.1) identify subjects, not version or execution order. ok to continue old numbers by subject and implement in any useful order.
+- drafts (`<number>-<topic>-draft.md`) — human thoughts about goals and design. user prompts may be stored as drafts to keep a reference of the global task.
 
 ## worklogs
 
 - worklog = index + evidence, not a diary. it has two future readers: the agent bisecting a regression into this change, and whoever forks or reimplements.
-- worklog is named after its plan: archive/0.1.0-plan.md -> archive/0.1.0-worklog.md.
+- worklog is named after its plan: archive/0.1-Board-and-player-moves-plan.md -> archive/0.1-Board-and-player-moves-worklog.md.
 - entry <= 15 lines:
 	plan id
 	changed: file + nature (move/feature/fix), one line each
@@ -142,12 +142,12 @@ getObj().data().action()
 
 ## current workstream
 
-0.1–0.6 implemented. Play surface animates short directed beam dashes from emitter to receiver and paints reactive rim items in `RIM_PAD` margin (`render.js`), driven by `contractState(result)` without touching trace or scoring. `dom_smoke.js` covers handlers, rim states and shared classic-script scope; L2 = all six fixture scripts whenever `index.html` or load order changes.
+0.1–0.6 implemented. Play surface animates short directed beam dashes from emitter to receiver and paints reactive rim items in `RIM_PAD` margin (`rim.js` via `render.js`), each lit receiver wired to its side item with a bottom power cell, driven by `contractState(result)` without touching trace or scoring. `dom_smoke.js` covers handlers, rim states and shared classic-script scope; L2 = all six fixture scripts whenever `index.html` or load order changes.
 0.8 step 1 done: `generate(seed, mode, corner, difficulty, mirrorCount = 11)` samples exact counts via `profile()`; fallback is the verified per-count catalog in `presets.js`.
 0.8 steps 2–3 done: `contractWon` (contract.js), `measureWalks` and diagnostic `shortestSolve` (difficulty.js); generation selects the closest walk score from up to 8 verified candidates under one attempt budget, with isolated measurement streams and result metadata.
 0.8 step 4 done: exact-count and continuous difficulty controls default to 11/49 and 25/100; committed changes to any setting regenerate immediately (input events only relabel); game.js reports active metadata/preset status.
 0.8 step 5 automated part done: target `0.20 + 0.80·d` calibrated on training seeds, held-out gate passes all rulesets (logs `experiments/logs/0.8-calibrate-*`).
-next: 0.8 browser manual pass (plan §8 list) then close 0.8 into archive/. pending: 0.7 sound (`0.7.0-plan.md`). deferred: emitter width (`0.1.0-plan.md`), ring rotation transition polish.
+next: 0.8 browser manual pass (plan §8 list) then close 0.8 into archive/. pending: 0.7 sound (`0.7-Sound-photon-sonification-and-sound-panel-plan.md`). deferred: emitter width (`0.1-Board-and-player-moves-plan.md`), ring rotation transition polish.
 
 ## housekeeping
 
