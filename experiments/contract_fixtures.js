@@ -133,8 +133,8 @@ c.ok(goal.evaluateContract(splitExtra, trace.traceRecv).forbiddenLight, 'real sp
 const root = path.join(__dirname, '..');
 const html = fs.readFileSync(path.join(root, 'index.html'), 'utf8');
 const scripts = Array.from(html.matchAll(/<script src="([^"]+)"><\/script>/g), match => match[1]);
-c.eq(scripts.length, 12, 'classic script count');
-c.same(scripts, ['board.js', 'trace.js', 'contract.js', 'difficulty.js', 'hints.js', 'presets.js', 'generate.js', 'rim.js', 'render.js', 'game.js', 'input.js', 'app.js'], 'classic scripts load in order');
+c.eq(scripts.length, 13, 'classic script count');
+c.same(scripts, ['board.js', 'trace.js', 'contract.js', 'difficulty.js', 'hints.js', 'presets.js', 'generate.js', 'rim.js', 'skin.js', 'render.js', 'game.js', 'input.js', 'app.js'], 'classic scripts load in order');
 const inputs = {};
 for (const id of ['hint-current', 'hint-discoveries', 'hint-targets']) {
 	const input = html.match(new RegExp('<input[^>]*id="' + id + '"[^>]*>'));

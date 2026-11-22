@@ -59,7 +59,9 @@ getObj().data().action()
 	presets.js — owns compact count-preserving fallback templates and their decoding. edit for template codec; data is rebuilt by experiments/build_presets.js.
 	generate.js — owns solvable generation, dial profile, walk-score selection and verified count-specific fallback. edit for sampling, profile anchors, scramble policy, candidate selection and metadata.
 	rim.js — owns out-of-border rim items (boiler, lamp, billboard, crystal, detector, power cell, rail) and receiver-to-item wiring. edit for rim visuals, wiring and state animations.
-	render.js — owns canvas painting of pose, animated beams, receivers, overlays and sizing. edit for board visuals, dash motion, overlay shapes.
+	render.js — owns the 'current' skin: canvas painting of pose, animated beams, receivers, overlays and sizing; registers itself into Skin. edit for board visuals, dash motion, overlay shapes.
+	skin.js — owns skin registry, active selection and the neutral render* adapters that make render optional/pluggable. edit for skin entry-point names, fallback behavior.
+	skin-old.js — owns the old-prototype visual style skin (radial bg, full grid, glass cells, soft additive beams, diamond targets, glowing laser) on the current engine; adopts rim items via drawRimItems. edit for old-look colors, beam feel, target shapes.
 	game.js — owns live puzzle/progress state, normalized generation settings, preview switching and active readouts. edit for game flow, settings normalization and wording.
 	input.js — owns pointer, wheel, drag gestures, ring keys, bindings, setting labels and regenerate-on-change triggers. edit for bindings, labels, drag tuning and hit rules.
 	app.js — composer: root, $ and boot wiring only. implements nothing.

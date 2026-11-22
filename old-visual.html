@@ -1,0 +1,87 @@
+<!DOCTYPE html>
+<!-- owns: the old-prototype visual style page; same backend, swapped skin
+     edit for: load order (skin.js + skin-old.js replace render.js) -->
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Light Square — old visual</title>
+<style>
+	body { background: #000; color: #cfd6e4; font: 14px system-ui, sans-serif; margin: 0; padding: 12px; display: flex; flex-direction: column; align-items: center; gap: 10px; }
+	#canv { width: min(92vmin, 680px); aspect-ratio: 1; touch-action: none; }
+	#readout span { margin-right: 14px; }
+	#readout-generation { color: #8b93a7; text-align: center; max-width: 760px; }
+	input[type=number] { width: 4em; }
+	#readout-msg { color: #8b93a7; }
+	#panel { display: flex; flex-wrap: wrap; gap: 14px; justify-content: center; }
+	fieldset { border: 1px solid #2a2f3a; border-radius: 6px; display: flex; flex-wrap: wrap; gap: 8px; align-items: center; }
+	#rotation-controls { display: grid; grid-template-columns: repeat(2, auto); gap: 6px; }
+	.rotate-stack { display: flex; flex-direction: column; gap: 6px; align-items: flex-start; }
+	.laser-row { display: flex; gap: 8px; }
+	.side-stack { display: flex; flex-direction: column; gap: 14px; }
+	legend { color: #8b93a7; padding: 0 6px; }
+	button { background: #141821; color: #cfd6e4; border: 1px solid #2a2f3a; border-radius: 6px; padding: 6px 12px; }
+	button:active { background: #232a38; }
+	input[type=range] { width: 130px; }
+	#skin-note { color: #8b93a7; font-size: 12px; }
+	#skin-note a { color: #9fb4ff; }
+</style>
+</head>
+<body>
+<div id="skin-note">old-prototype visual · <a href="index.html">switch to current visual</a></div>
+<canvas id="canv"></canvas>
+<div id="readout" aria-live="polite"><span id="readout-pct">0%</span><span id="readout-msg"></span><span id="readout-rules"></span></div>
+<div id="readout-generation" aria-live="polite" title="Walk escape is a fixed random-walk probe, not a human skill rating."></div>
+<div id="panel">
+<fieldset><legend>Rotate squares · CCW / CW</legend>
+<div class="rotate-stack">
+<div id="rotation-controls">
+<button id="btn-ccw-0" aria-label="Outer square counterclockwise, shortcut 1">Outer ↶ 1</button>
+<button id="btn-cw-0" aria-label="Outer square clockwise, shortcut 2">Outer ↷ 2</button>
+<button id="btn-ccw-1" aria-label="Middle square counterclockwise, shortcut Q">Middle ↶ Q</button>
+<button id="btn-cw-1" aria-label="Middle square clockwise, shortcut W">Middle ↷ W</button>
+<button id="btn-ccw-2" aria-label="Inner square counterclockwise, shortcut A">Inner ↶ A</button>
+<button id="btn-cw-2" aria-label="Inner square clockwise, shortcut S">Inner ↷ S</button>
+<button id="btn-ccw-3" aria-label="Flip center, shortcut Z">Center ↶ Z</button>
+<button id="btn-cw-3" aria-label="Flip center, shortcut X">Center ↷ X</button>
+</div>
+<div class="laser-row">
+<button id="btn-left">&#9664;</button>
+<button id="btn-right">&#9654;</button>
+</div>
+</div>
+</fieldset>
+<div class="side-stack">
+<fieldset><legend>Hints</legend>
+<label><input type="checkbox" id="hint-current"> Current matches</label>
+<label><input type="checkbox" id="hint-discoveries"> Remember discoveries</label>
+<label><input type="checkbox" id="hint-targets"> Show targets</label>
+<button id="btn-preview">Preview (hold)</button>
+</fieldset>
+<fieldset><legend>Puzzle · a change generates a new one</legend>
+<select id="rule-mode"><option value="0">quarter turns</option><option value="1">single slots</option></select>
+<label><input type="checkbox" id="rule-corner"> corners flip</label>
+<label for="mirror-count" id="mirror-count-label">Mirrors 11/49</label>
+<input type="number" id="mirror-count" min="1" max="49" step="1" value="11" title="Fewer mirrors reduce visual clutter. Difficulty does not change their count.">
+<label for="difficulty" id="difficulty-label">Difficulty 25/100</label>
+<input type="range" id="difficulty" min="0" max="100" step="1" value="25" title="Seeks a harder fixed random-walk score, not a human skill rating.">
+<button id="btn-generate">Generate</button>
+<button id="btn-restart">Restart</button>
+</fieldset>
+</div>
+</div>
+<script src="board.js"></script>
+<script src="trace.js"></script>
+<script src="contract.js"></script>
+<script src="difficulty.js"></script>
+<script src="hints.js"></script>
+<script src="presets.js"></script>
+<script src="generate.js"></script>
+<script src="rim.js"></script>
+<script src="skin.js"></script>
+<script src="skin-old.js"></script>
+<script src="game.js"></script>
+<script src="input.js"></script>
+<script src="app.js"></script>
+</body>
+</html>

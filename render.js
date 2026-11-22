@@ -49,7 +49,7 @@ let rSel = -1;
 const rView = { tiles: null, emitter: 0, seg: null, recv: null, overlays: null, result: null, previewing: false };
 const rPt = { row: 0, col: 0 };
 
-function renderInit(root) {
+function rInit(root) {
 	rCanv = root;
 	rCtx = root.getContext('2d');
 	sizeCanvas();
@@ -68,7 +68,7 @@ function sizeCanvas() {
 	rCell = px / RENDER_SPAN;
 }
 
-function renderView(v) {
+function rSetView(v) {
 	rView.tiles = v.tiles;
 	rView.emitter = v.emitter;
 	rView.seg = v.seg;
@@ -78,11 +78,11 @@ function renderView(v) {
 	rView.previewing = v.previewing;
 }
 
-function renderSetSelection(ring) {
+function rSelect(ring) {
 	rSel = ring;
 }
 
-function renderPointToCell(x, y) {
+function rHit(x, y) {
 	const rect = rCanv.getBoundingClientRect();
 	const s = rect.width / RENDER_SPAN;
 	const col = Math.floor((x - rect.left) / s - RIM_PAD);
@@ -346,8 +346,12 @@ function drawPreviewTag() {
 if (typeof module !== 'undefined') module.exports = {
 	RIM_PAD,
 	RENDER_SPAN,
-	renderInit,
-	renderView,
-	renderSetSelection,
-	renderPointToCell
+	renderInit: rInit,
+	renderView: rSetView,
+	renderSetSelection: rSelect,
+	renderPointToCell: rHit
 };
+
+if (typeof module === 'undefined' && typeof Skin !== 'undefined') {
+	skinRegister('current', { init: rInit, view: rSetView, setSelection: rSelect, pointToCell: rHit });
+}
