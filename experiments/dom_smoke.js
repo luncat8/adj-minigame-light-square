@@ -517,7 +517,7 @@ const vmCtx = vm.createContext({
 for (const script of scripts) {
 	vm.runInContext(fs.readFileSync(path.join(rootDir, script), 'utf8'), vmCtx, { filename: script });
 }
-c.eq(vmEls['canv'].width, 600, 'all 19 classic scripts boot cleanly in one shared lexical scope');
+c.eq(vmEls['canv'].width, 600, 'all 20 classic scripts boot cleanly in one shared lexical scope');
 c.eq(vm.runInContext('soundContext()', vmCtx), null, 'classic boot creates no AudioContext before user gesture');
 
 c.ok(/id="mirror-count"[^>]*min="1"[^>]*max="49"[^>]*step="1"[^>]*value="11"/.test(html), 'count control HTML bounds and default');
