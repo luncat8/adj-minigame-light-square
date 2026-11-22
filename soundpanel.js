@@ -110,10 +110,12 @@ function spLoadStorage() {
 		const patch = list[i];
 		const saved = data.params[patch.id];
 		if (!saved || typeof saved !== 'object') continue;
-		for (let j = 0; j < patch.params.length; j++) {
-			const d = patch.params[j];
-			spCfg.params[patch.id][d.key] = spClamp(saved[d.key], d.min, d.max, d.def);
-		}
+			for (let j = 0; j < patch.params.length; j++) {
+				const d = patch.params[j];
+				spCfg.params[patch.id][d.key] = d.choices
+					? spChoice(saved[d.key], d.choices, d.def)
+					: spClamp(saved[d.key], d.min, d.max, d.def);
+			}
 	}
 }
 
@@ -168,23 +170,35 @@ function spRebuildParams() {
 	const vals = spCfg.params[patch.id] || (spCfg.params[patch.id] = {});
 	for (let i = 0; i < patch.params.length; i++) {
 		const d = patch.params[i];
-		const cur = spClamp(vals[d.key], d.min, d.max, d.def);
+		const cur = d.choices ? spChoice(vals[d.key], d.choices, d.def) : spClamp(vals[d.key], d.min, d.max, d.def);
 		vals[d.key] = cur;
 		const wrap = document.createElement('label');
 		const span = document.createElement('span');
 		span.id = 'snd-param-label-' + d.key;
-		span.textContent = d.label + ' ' + spFormatParam(cur, d.step);
-		const input = document.createElement('input');
-		input.type = 'range';
+		span.textContent = d.label + ' ' + (d.choices ? cur : spFormatParam(cur, d.step));
+		let input;
+		if (d.choices) {
+			input = document.createElement('select');
+			for (let k = 0; k < d.choices.length; k++) {
+				const opt = document.createElement('option');
+				opt.value = d.choices[k];
+				opt.textContent = d.choices[k];
+				input.appendChild(opt);
+			}
+			input.value = String(cur);
+		} else {
+			input = document.createElement('input');
+			input.type = 'range';
+			input.min = String(d.min);
+			input.max = String(d.max);
+			input.step = String(d.step);
+			input.value = String(cur);
+		}
 		input.id = 'snd-param-' + d.key;
-		input.min = String(d.min);
-		input.max = String(d.max);
-		input.step = String(d.step);
-		input.value = String(cur);
 		const onInput = () => {
-			const v = spClamp(input.value, d.min, d.max, d.def);
+			const v = d.choices ? spChoice(input.value, d.choices, d.def) : spClamp(input.value, d.min, d.max, d.def);
 			vals[d.key] = v;
-			span.textContent = d.label + ' ' + spFormatParam(v, d.step);
+			span.textContent = d.label + ' ' + (d.choices ? v : spFormatParam(v, d.step));
 			spSaveStorage();
 			spNotifyAudio();
 		};
