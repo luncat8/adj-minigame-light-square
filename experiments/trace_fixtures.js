@@ -1,4 +1,4 @@
-// owns: 0.2 light transport fixtures — empty board, diagonals, split, combine, bottom, loop, order
+// owns: 0.2/0.7 light transport and event stream fixtures — empty board, diagonals, split, combine, bottom, loop, order, depth/branch/bend
 // run: node experiments/trace_fixtures.js
 
 const trace = require('../trace.js');
@@ -148,5 +148,126 @@ for (let i = 0; i < o1[1].length; i++) if (o1[1][i] !== o2[1][i]) h = false;
 c.ok(h, 'seed order leaves identical results');
 c.eq(o1[0][flat(0, 7)], 2, 'order run green up');
 c.eq(o1[0][flat(7, 14)], 5, 'order run red+blue right');
+
+// 0.7 event stream: unpack helper + nondecreasing depth check
+function readEvents() {
+	const out = [];
+	for (let i = 0; i < trace.traceEvN; i++) {
+		const info = trace.traceEvInfo[i];
+		out.push({
+			cell: trace.traceEvCell[i],
+			depth: trace.traceEvDepth[i],
+			branch: trace.traceEvBranch[i],
+			fork: trace.traceEvFork[i],
+			kind: info & 7,
+			dir: (info >>> 3) & 3,
+			passCh: (info >>> 5) & 7,
+			refCh: (info >>> 8) & 7,
+			refDir: (info >>> 11) & 3
+		});
+	}
+	return out;
+}
+
+function nondecreasingDepth(evs) {
+	for (let i = 1; i < evs.length; i++) if (evs[i].depth < evs[i - 1].depth) return false;
+	return true;
+}
+
+// outer empty column (col 2 misses glass): zero interior events, one absorb at depth 14
+trace.traceLight(empty, 2);
+let evs = readEvents();
+c.eq(evs.length, 1, 'empty outer column logs only one absorb');
+c.ok(evs[0].kind === trace.EV_ABSORB && evs[0].cell === flat(0, 2) && evs[0].depth === 14 && evs[0].passCh === 7, 'empty outer column absorb at depth 14');
+
+// center empty column (col 7 crosses 7 clear glass cells at depths 4..10, absorbs at depth 14)
+trace.traceLight(empty, 7);
+evs = readEvents();
+c.eq(evs.length, 8, 'empty glass column logs 7 clear glass + 1 absorb');
+c.ok(nondecreasingDepth(evs), 'empty glass column depth nondecreasing');
+c.ok(evs[0].kind === trace.EV_GLASS && evs[0].depth === 4 && evs[6].kind === trace.EV_GLASS && evs[6].depth === 10, 'clear glass depths 4..10');
+c.ok(evs[7].kind === trace.EV_ABSORB && evs[7].depth === 14 && evs[7].branch === 0, 'glass column absorb at depth 14 on branch 0');
+
+// full mirror turn signs across all 8 (dir, diag) combinations: left = +1, right = -1
+const wantTurns = [-1, 1, -1, 1, 1, -1, 1, -1];
+for (let i = 0; i < diagCases.length; i++) {
+	const cs = diagCases[i];
+	const tiles = zeroTiles();
+	putMirror(tiles, 7, 7, cs[3], 7);
+	trace.traceReset();
+	trace.traceSeed(flat(cs[0], cs[1]), cs[2], 7);
+	trace.traceRun(tiles);
+	evs = readEvents();
+	const refl = evs.find(e => e.cell === flat(7, 7));
+	c.ok(!!refl && refl.kind === trace.EV_REFLECT && refl.passCh === 0 && refl.refCh === 7, 'reflect event case ' + i);
+	c.eq(trace.traceTurn(refl.dir, refl.refDir), wantTurns[i], 'reflect turn sign case ' + i);
+	c.ok(nondecreasingDepth(evs), 'reflect case depth nondecreasing ' + i);
+}
+
+// filter pass: green (2) through R|B (5) mirror logs EV_FILTER with zero bounce
+trace.traceReset();
+trace.traceSeed(flat(8, 7), UP, 2);
+trace.traceRun(split);
+evs = readEvents();
+const filt = evs.find(e => e.cell === flat(7, 7));
+c.ok(!!filt && filt.kind === trace.EV_FILTER && filt.passCh === 2 && filt.refCh === 0, 'disjoint mask logs EV_FILTER');
+c.eq(trace.traceBounce[flat(6, 7) * 4 + UP], 0, 'filter pass adds no bounce');
+
+// split: white on R|B '/' keeps branch 0 on straight green ray and forks branch 1 on reflected magenta ray
+trace.traceLight(split, 7);
+evs = readEvents();
+c.ok(nondecreasingDepth(evs), 'split depth nondecreasing');
+const sp = evs.find(e => e.cell === flat(7, 7));
+c.ok(!!sp && sp.kind === trace.EV_SPLIT && sp.passCh === 2 && sp.refCh === 5 && sp.branch === 0 && sp.fork === 1, 'split logs both channel sets and fork branch');
+const topAbs = evs.find(e => e.kind === trace.EV_ABSORB && e.cell === flat(0, 7));
+const rightAbs = evs.find(e => e.kind === trace.EV_ABSORB && e.cell === flat(7, 14));
+c.ok(!!topAbs && topAbs.branch === 0 && topAbs.passCh === 2, 'continuing split ray keeps parent branch 0');
+c.ok(!!rightAbs && rightAbs.branch === 1 && rightAbs.passCh === 5, 'diverging split ray takes fresh branch 1');
+
+// early border absorb + deeper interior reflections stay in nondecreasing depth order
+const mixedDepth = zeroTiles();
+putMirror(mixedDepth, 10, 4, 0, 1);
+putMirror(mixedDepth, 10, 10, 1, 1);
+putMirror(mixedDepth, 4, 10, 0, 1);
+trace.traceLight(mixedDepth, 4);
+evs = readEvents();
+c.ok(nondecreasingDepth(evs), 'early border absorb before deeper interior mirrors keeps nondecreasing depth');
+
+// bend accumulation + return-to-bottom absorb
+trace.traceLight(back, 7);
+evs = readEvents();
+const botAbs = evs[evs.length - 1];
+c.ok(botAbs.kind === trace.EV_ABSORB && botAbs.cell === flat(14, 9) && Math.floor(botAbs.cell / N) === 14, 'return to bottom logs EV_ABSORB on row 14');
+c.eq(trace.traceBend[flat(14, 9) * 4 + DOWN], -2, 'two right turns accumulate bend -2');
+c.eq(trace.traceBounce[flat(14, 9) * 4 + DOWN], 2, 'two right turns accumulate bounce 2');
+
+// merge determinism: in comb, magenta (5 bounces: -1,-1,-1,+1,+1 = bend -1) reaches (10, 10, RIGHT) before green (3 bounces, bend +3)
+trace.traceLight(comb, 7);
+evs = readEvents();
+c.ok(nondecreasingDepth(evs), 'combined merge depth nondecreasing');
+c.eq(trace.traceBend[flat(10, 10) * 4 + RIGHT], -1, 'merge keeps first-arriving parent bend');
+c.eq(trace.traceBounce[flat(10, 10) * 4 + RIGHT], 5, 'merge keeps first-arriving parent bounce');
+
+// equal-depth merge: seed order picks first parent deterministically
+const eqMerge = zeroTiles();
+putMirror(eqMerge, 7, 6, 0, 1);
+putMirror(eqMerge, 7, 8, 1, 2);
+putMirror(eqMerge, 6, 7, 0, 0);
+trace.traceReset();
+trace.traceSeed(flat(7, 5), RIGHT, 1, 1, 0, 3, 1);
+trace.traceSeed(flat(7, 9), LEFT, 2, 1, 1, -5, 4);
+putMirror(eqMerge, 7, 7, 0, 1);
+trace.traceReset();
+trace.traceSeed(flat(8, 7), UP, 2, 1, 0, 5, 2);
+trace.traceSeed(flat(7, 6), RIGHT, 1, 1, 1, -3, 4);
+trace.traceRun(eqMerge);
+c.eq(trace.traceBend[flat(6, 7) * 4 + UP], 5, 'equal-depth merge keeps first enqueued parent bend');
+c.eq(trace.traceBounce[flat(6, 7) * 4 + UP], 2, 'equal-depth merge keeps first enqueued parent bounce');
+
+// closed loop: visited dedups events after one lap
+trace.traceReset();
+trace.traceSeed(flat(6, 6), UP, 7);
+trace.traceRun(loop);
+c.eq(trace.traceEvN, 4, 'closed loop emits one reflect per corner then dedups');
 
 c.report('trace_fixtures');

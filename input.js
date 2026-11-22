@@ -4,6 +4,7 @@
 const iBoard = typeof module !== 'undefined' && module.exports ? require('./board.js') : null;
 const iGame = typeof module !== 'undefined' && module.exports ? require('./game.js') : null;
 const iRender = typeof module !== 'undefined' && module.exports ? require('./skins.js') : null;
+const iSound = typeof module !== 'undefined' && module.exports ? require('./soundpanel.js') : null;
 
 const iN = iBoard ? iBoard.BOARD_N : BOARD_N;
 const iGlass = iBoard ? iBoard.GLASS : GLASS;
@@ -91,7 +92,14 @@ function onKey(e) {
 	if (e.ctrlKey || e.metaKey || e.altKey) return;
 	const tag = e.target && e.target.tagName;
 	if (tag === 'INPUT' || tag === 'SELECT' || tag === 'TEXTAREA' || (e.target && e.target.isContentEditable)) return;
-	const key = iKeys.indexOf(e.key.toLowerCase());
+	const k = e.key.toLowerCase();
+	if (k === 'm') {
+		e.preventDefault();
+		if (iSound) iSound.soundPanelToggle();
+		else if (typeof soundPanelToggle !== 'undefined') soundPanelToggle();
+		return;
+	}
+	const key = iKeys.indexOf(k);
 	if (key < 0) return;
 	e.preventDefault();
 	rotate(Math.floor(key / 2), key % 2 ? 1 : -1);

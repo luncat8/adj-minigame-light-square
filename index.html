@@ -24,7 +24,12 @@
 	legend { color: #8b93a7; padding: 0 6px; }
 	button { background: #141821; color: #cfd6e4; border: 1px solid #2a2f3a; border-radius: 6px; padding: 6px 12px; }
 	button:active { background: #232a38; }
+	button[aria-pressed="true"] { background: #1c2c44; border-color: #4f77b8; color: #eef4ff; }
 	input[type=range] { width: 130px; }
+	#snd-more { width: 100%; color: #8b93a7; }
+	#snd-more summary { cursor: pointer; margin-bottom: 6px; }
+	.snd-grid, #snd-params { display: flex; flex-wrap: wrap; gap: 8px; align-items: center; margin-top: 6px; }
+	.snd-grid label, #snd-params label { display: flex; flex-wrap: wrap; gap: 4px; align-items: center; color: #cfd6e4; }
 	/* wide landscape: control groups left, canvas fills the rest; narrow stays vertical with the canvas on top */
 	@media (orientation: landscape) and (min-width: 760px) and (min-height: 480px) {
 		#layout { flex-direction: row; gap: 24px; }
@@ -81,6 +86,55 @@
 <select id="skin" title="Render skin: glass or prototype."><option value="glass">glass</option><option value="prototype">prototype</option></select>
 <label>ray <select id="ray" title="Thin beam core style; the soft glow stays as-is."><option value="lines">lines</option><option value="long">fast long dashes</option><option value="short" selected>short dashes</option></select></label>
 </fieldset>
+<fieldset><legend>Sound</legend>
+<button id="snd-on" aria-pressed="false" title="Enable or mute photon sonification (shortcut M).">Sound off · M</button>
+<select id="snd-variant" title="Synth voice for photon interactions.">
+<option value="glass">Glass Harp</option>
+<option value="prism">Prism Pad</option>
+<option value="comet">Comet</option>
+<option value="pulse">Pulse</option>
+<option value="grains">Crystal Grains</option>
+</select>
+<label for="snd-volume" id="snd-volume-label">Vol 70%</label>
+<input type="range" id="snd-volume" min="0" max="100" step="1" value="70" title="Master output volume.">
+<label for="snd-speed" id="snd-speed-label">Speed 4/s</label>
+<input type="range" id="snd-speed" min="1" max="16" step="0.5" value="4" title="Photon flight speed in cells per second.">
+<select id="snd-mode" title="When photon waves launch.">
+<option value="move">on move</option>
+<option value="loop">loop</option>
+<option value="bed">bed only</option>
+<option value="off">off</option>
+</select>
+<button id="snd-replay" title="Send a fresh audible photon wave for the current pose.">Replay</button>
+<details id="snd-more"><summary>Tuning &amp; timbre</summary>
+<div class="snd-grid">
+<label>scale <select id="snd-scale" title="Musical scale quantizing photon and receiver pitches.">
+<option value="majorPent">major pentatonic</option>
+<option value="minorPent">minor pentatonic</option>
+<option value="lydian">lydian</option>
+<option value="wholeTone">whole tone</option>
+<option value="hirajoshi">hirajoshi</option>
+</select></label>
+<label>root <select id="snd-root" title="Tonic root note.">
+<option value="C">C</option>
+<option value="D">D</option>
+<option value="Eb">Eb</option>
+<option value="F">F</option>
+<option value="G">G</option>
+<option value="A">A</option>
+<option value="Bb">Bb</option>
+</select></label>
+<label>pitch <select id="snd-pitch" title="Board position or turn/bounce path contour.">
+<option value="position">position</option>
+<option value="contour">contour</option>
+</select></label>
+<label title="Horizontal stereo pan spread.">width <input type="range" id="snd-width" min="0" max="100" step="1" value="85"></label>
+<label title="Reverb send and tail length.">reverb <input type="range" id="snd-reverb" min="0" max="100" step="1" value="45"></label>
+<label title="Sustained receiver chord bed level.">bed <input type="range" id="snd-bed" min="0" max="100" step="1" value="50"></label>
+</div>
+<div id="snd-params"></div>
+</details>
+</fieldset>
 </div>
 </div>
 <script src="board.js"></script>
@@ -94,6 +148,11 @@
 <script src="render.js"></script>
 <script src="renderAlt.js"></script>
 <script src="skins.js"></script>
+<script src="sonify.js"></script>
+<script src="patchesFlow.js"></script>
+<script src="patches.js"></script>
+<script src="audio.js"></script>
+<script src="soundpanel.js"></script>
 <script src="game.js"></script>
 <script src="input.js"></script>
 <script src="app.js"></script>

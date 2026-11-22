@@ -7,6 +7,7 @@ const gGoal = typeof module !== 'undefined' && module.exports ? require('./contr
 const gHints = typeof module !== 'undefined' && module.exports ? require('./hints.js') : null;
 const gGen = typeof module !== 'undefined' && module.exports ? require('./generate.js') : null;
 const gRender = typeof module !== 'undefined' && module.exports ? require('./skins.js') : null;
+const gAudio = typeof module !== 'undefined' && module.exports ? require('./audio.js') : null;
 
 const fCreate = gBoard ? gBoard.createPuzzle : createPuzzle;
 const fCommit = gBoard ? gBoard.commitStart : commitStart;
@@ -35,6 +36,11 @@ function segBuf() {
 	return gTrace ? gTrace.traceSeg : traceSeg;
 }
 
+function soundSink(v) {
+	if (gAudio) return gAudio.soundView(v);
+	if (typeof soundView !== 'undefined') soundView(v);
+}
+
 const live = {
 	puzzle: null,
 	gen: null,
@@ -42,8 +48,8 @@ const live = {
 	previewResult: null,
 	previewing: false,
 	witnessGlyphs: null,
-	// persistent view handed to the renderer; only refs and scalars change
-	view: { tiles: null, glyphs: null, shadeOff: 0, emitter: 0, seg: null, recv: null, overlays: null, result: null, previewing: false }
+	// persistent view handed to the renderer and sound sink; only refs and scalars change
+	view: { tiles: null, glyphs: null, shadeOff: 0, emitter: 0, seg: null, recv: null, overlays: null, result: null, previewing: false, moved: false }
 };
 
 function gameControlValue(raw, fallback, min, max) {
@@ -105,11 +111,11 @@ function refresh() {
 	fTrace(live.puzzle.tiles, live.puzzle.emitter);
 	const result = fUpdate(live.progress, recvBuf());
 	readout(result);
-	publishView();
+	publishView(true);
 }
 
 // preview swaps buffer refs and traces the witness pose; the live pose is never mutated
-function publishView() {
+function publishView(moved) {
 	const v = live.view;
 	v.tiles = live.previewing ? live.gen.witness : live.puzzle.tiles;
 	v.glyphs = live.previewing ? live.witnessGlyphs : live.puzzle.glyphs;
@@ -120,7 +126,9 @@ function publishView() {
 	v.overlays = fOverlay(live.progress, fControls(), live.previewing);
 	v.result = live.previewing ? live.previewResult : live.progress.result;
 	v.previewing = live.previewing;
+	v.moved = !!moved;
 	fRenderView(v);
+	soundSink(v);
 }
 
 function readout(result) {
@@ -176,7 +184,7 @@ function gamePreviewStart() {
 	live.previewing = true;
 	fTrace(live.gen.witness, live.gen.witnessEmitter);
 	live.previewResult = fEval(live.progress.contract, recvBuf());
-	publishView();
+	publishView(true);
 	$('readout-msg').textContent = 'preview — release to restore';
 }
 
@@ -184,7 +192,7 @@ function gamePreviewEnd() {
 	if (!live.previewing) return;
 	live.previewing = false;
 	fTrace(live.puzzle.tiles, live.puzzle.emitter);
-	publishView();
+	publishView(false);
 	readout(live.progress.result);
 }
 
@@ -194,7 +202,7 @@ function gamePreviewing() {
 
 // re-publish overlays after a hint toggle; no trace or progress change
 function gameRepublish() {
-	publishView();
+	publishView(false);
 }
 
 function gameLive() {

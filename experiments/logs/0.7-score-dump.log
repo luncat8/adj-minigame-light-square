@@ -1,0 +1,4 @@
+mirrors=1 poses=200 raw_med=8.0 raw_max=15 events_med=8.0 events_max=15 dur_med_s=3.50 chord_max=2 plan=0.7
+mirrors=11 poses=200 raw_med=12.0 raw_max=26 events_med=12.0 events_max=26 dur_med_s=3.50 chord_max=3 plan=0.7
+mirrors=25 poses=200 raw_med=15.0 raw_max=43 events_med=15.0 events_max=43 dur_med_s=4.00 chord_max=3 plan=0.7
+mirrors=49 poses=200 raw_med=19.0 raw_max=59 events_med=19.0 events_max=59 dur_med_s=4.25 chord_max=3 plan=0.7

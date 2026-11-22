@@ -62,6 +62,11 @@ getObj().data().action()
 	render.js — owns the glass render skin: canvas painting of pose, animated beams, receivers, overlays and sizing. edit for glass skin visuals, dash motion, overlay shapes.
 	renderAlt.js — owns the prototype render skin: rounded glass, solid additive beams, diamond targets. edit for prototype skin visuals, beam glow, overlay shapes.
 	skins.js — owns render skin selection, beam ray style and the page-facing render entry points. edit for adding or switching a skin or ray style; skins expose interface-named functions (glass*, renderAlt*).
+	sonify.js — owns DOM-free trace-event to score mapping, musical scales, pitch sources, density caps and leak gating. edit for mappings, scales and caps.
+	patchesFlow.js — owns continuous branch-following and granular synth variants (Prism Pad, Comet, Crystal Grains). edit for portamento, HRTF Doppler and grain clouds.
+	patches.js — owns synth variant table, param schemas, struck/groove variants (Glass Harp, Pulse), harmonic bed, emitter breath and win flourish. edit for variant registry and struck/bed timbres.
+	audio.js — owns AudioContext lifecycle, master bus, reverb IR, lookahead scheduler, waves, bed crossfade and soundView sink. edit for timing, mixing, ghost preview and polyphony cap.
+	soundpanel.js — owns Sound panel DOM controls, dynamic variant parameter block, mute toggle and localStorage persistence. edit for controls, defaults and storage schema.
 	game.js — owns live puzzle/progress state, normalized generation settings, preview switching and active readouts. edit for game flow, settings normalization and wording.
 	input.js — owns pointer, wheel, drag gestures, ring keys, bindings, setting labels and regenerate-on-change triggers. edit for bindings, labels, drag tuning and hit rules.
 	app.js — composer: root, $ and boot wiring only. implements nothing.
@@ -76,6 +81,9 @@ getObj().data().action()
 	experiments/build_presets.js — owns deterministic preset catalog construction. run to rewrite PRESET_CODES in presets.js.
 	experiments/dom_smoke.js — owns integration and classic-scope smoke under a stub DOM. edit for boot, handlers, regenerate-on-change controls and rim-item coverage.
 	experiments/skin_fixtures.js — owns render skin dispatch smoke. edit for skin switch, prototype paint and rim-item adoption.
+	experiments/sonify_fixtures.js — owns 0.7 score mapping, scale membership, caps, leak rule and bed fixtures. edit for sonification cases.
+	experiments/score_dump.js — owns 0.7 event-count, chord-density and duration measurement across generated puzzles.
+	experiments/sound_smoke.js — owns 0.7 AudioContext, scheduler, wave lifecycle, variants, Sound panel and persistence smoke.
 - new code goes to its owner, never appended "because the file is already there". no owner exists -> new file + header + map entry.
 - file > ~500 lines = defect. split by feature within the same plan.
 - moves are pure moves: contiguous ranges, snap to enclosing declarations, no behavior change.
@@ -145,14 +153,10 @@ getObj().data().action()
 
 ## current workstream
 
-0.1–0.6 implemented. Play surface animates short directed beam dashes from emitter to receiver and paints reactive rim items in `RIM_PAD` margin (`rim.js` via `render.js`), each lit receiver wired to its side item with a bottom power cell, driven by `contractState(result)` without touching trace or scoring. `dom_smoke.js` covers handlers, rim states and shared classic-script scope; L2 = all seven fixture scripts whenever `index.html` or load order changes.
-0.9 done: render is an optional skin behind `skins.js`; two skins ship — `render.js` (glass, default) and `renderAlt.js` (prototype, adopted from the old prototype render, now also rendering the 0.6 rim items). Look `<select>` switches at runtime without touching the puzzle or progress; `skin_fixtures.js` covers the dispatch, prototype paint and rim adoption.
-0.9.2–0.9.5 done: prototype skin ports the whole-cell glow under the beam (alpha 0.1 glass / 0.24 border). A `ray` select (lines / fast long dashes / short) drives the thin beam core in both skins; glass mode draws solid glow in `lines`/`long` and omits glow in `short` (dashes only). All 49 rotatable glass cells use lighter per-cell varied shades (`CELL_SHADE`) and dim 3-pass relief Chinese/Hindi light-and-optics glyphs (`CELL_GLYPHS` in `board.js`) that permute with ring moves and preview. The canvas fills the viewport with CSS width-driven sizing, square via aspect-ratio.
-0.8 step 1 done: `generate(seed, mode, corner, difficulty, mirrorCount = 11)` samples exact counts via `profile()`; fallback is the verified per-count catalog in `presets.js`.
-0.8 steps 2–3 done: `contractWon` (contract.js), `measureWalks` and diagnostic `shortestSolve` (difficulty.js); generation selects the closest walk score from up to 8 verified candidates under one attempt budget, with isolated measurement streams and result metadata.
-0.8 step 4 done: exact-count and continuous difficulty controls default to 11/49 and 25/100; committed changes to any setting regenerate immediately (input events only relabel); game.js reports active metadata/preset status.
-0.8 step 5 automated part done: target `0.20 + 0.80·d` calibrated on training seeds, held-out gate passes all rulesets (logs `experiments/logs/0.8-calibrate-*`).
-next: 0.8 browser manual pass (plan §8 list) then close 0.8 into archive/. pending: 0.7 sound (`0.7-Sound-photon-sonification-and-sound-panel-plan.md`). deferred: emitter width (`0.1-Board-and-player-moves-plan.md`), ring rotation transition polish.
+0.1–0.6 + 0.9 done: 15×15 board with 49 rotatable glass cells (`CELL_SHADE` + `CELL_GLYPHS`), RGB trace, secret contract + hints, two render skins (`render.js` glass, `renderAlt.js` prototype) behind `skins.js` with `ray` core selector, and reactive `RIM_PAD` items (`rim.js`).
+0.8 automated steps done: exact-count generation (`1..49` mirrors, verified `presets.js` fallback), walk-score selection (`0.20 + 0.80·d` calibrated on held-out seeds, `difficulty.js` BFS diagnostics), and immediate regenerate-on-change controls.
+0.7 automated steps done: `trace.js` logs depth-monotonic photon events (`EV_GLASS`/`FILTER`/`REFLECT`/`SPLIT`/`ABSORB`, branch + fork ids, cumulative bend/bounce, `|Δ gen_ms| <= 4.6%`); `sonify.js` snapshots leak-safe preallocated scores; `audio.js` + `patches.js` + `patchesFlow.js` + `soundpanel.js` drive lazy Web Audio waves, 5 synth variants, sustained receiver bed, ghost preview, win flourish, `M` mute and `localStorage` persistence (`sonify_fixtures`, `sound_smoke`, 19-script `dom_smoke`).
+next: 0.7 + 0.8 browser manual passes (listening pass in `0.7-Sound-photon-sonification-and-sound-panel-plan.md`, feel pass in `0.8-Sparse-mirrors-and-measured-difficulty-plan.md`). deferred: visible photon head (`0.7` optional step), emitter width (`0.1`), ring rotation transition polish.
 
 ## housekeeping
 

@@ -133,7 +133,7 @@ function glassPoint(x, y) {
 
 function rFrame(now) {
 	paint(now || 0);
-	requestAnimationFrame(rFrame);
+	rRaf = requestAnimationFrame(rFrame);
 }
 
 // canvas.width resets ctx state, so cap/join/composite are set every paint

@@ -53,16 +53,22 @@ global.document = { getElementById(id) { return els[id] || (els[id] = makeEl(id)
 global.$ = id => global.document.getElementById(id);
 global.window = { devicePixelRatio: 1, addEventListener() {}, removeEventListener() {} };
 
-let rafCb = null;
-global.requestAnimationFrame = f => { rafCb = f; };
+let rafSeq = 0;
+const rafQ = new Map();
+global.requestAnimationFrame = f => {
+	const id = ++rafSeq;
+	rafQ.set(id, f);
+	return id;
+};
+global.cancelAnimationFrame = id => { rafQ.delete(id); };
 function pump(n, now) {
-	drawnTexts.length = 0;
-	strokeStyles.length = 0;
-	fillStyles.length = 0;
-	for (let i = 0; i < n && rafCb; i++) {
-		const f = rafCb;
-		rafCb = null;
-		f(now);
+	for (let i = 0; i < n && rafQ.size; i++) {
+		drawnTexts.length = 0;
+		strokeStyles.length = 0;
+		fillStyles.length = 0;
+		const batch = Array.from(rafQ.entries());
+		rafQ.clear();
+		for (const [, f] of batch) f(now);
 	}
 }
 
@@ -71,7 +77,7 @@ $('difficulty').value = '25';
 $('mirror-count').value = '11';
 
 require('../app.js');
-pump(1, 0);
+pump(2, 0);
 
 const cellPx = 600 / render.RENDER_SPAN;
 const px = cell => (cell + render.RIM_PAD + 0.5) * cellPx;
@@ -94,8 +100,9 @@ c.eq(skins.renderPointToCell(5, 5), null, 'glass hit-test ignores the rim margin
 
 skins.skinSelect('prototype');
 c.eq(skins.skinName(), 'prototype', 'switch selects the prototype skin');
+c.eq(rafQ.size, 1, 'skin switch cancels the old rAF loop after multi-frame run');
 litFills.length = 0;
-pump(1, 100);
+pump(2, 100);
 c.ok(strokeCount > 0, 'prototype skin paints after switch');
 c.ok(litFills.some(f => f[0] === 'lighter' && f[1] <= 0.24), 'prototype skin paints whole-cell glow under the beam');
 c.ok(fillStyles.includes('rgba(72,128,208,0.055)'), 'prototype outer cells use dimmer fill');

@@ -134,7 +134,7 @@ function sizeAlt() {
 
 function aFrame(now) {
 	paintAlt(now || 0);
-	requestAnimationFrame(aFrame);
+	aRaf = requestAnimationFrame(aFrame);
 }
 
 function paintAlt(t) {

@@ -1,0 +1,3 @@
+mirrors=1 gen_ms_pre=6.309 gen_ms_post=6.564 rel=0.040 plan=0.7
+mirrors=11 gen_ms_pre=8.177 gen_ms_post=8.472 rel=0.036 plan=0.7
+mirrors=49 gen_ms_pre=9.655 gen_ms_post=10.098 rel=0.046 plan=0.7

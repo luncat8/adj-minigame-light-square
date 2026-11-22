@@ -489,10 +489,16 @@ const vmCtx = vm.createContext({
 	Date,
 	Math,
 	Uint8Array,
+	Uint16Array,
 	Int8Array,
 	Int32Array,
+	Float32Array,
 	RangeError,
 	Set,
+	setTimeout,
+	clearTimeout,
+	setInterval,
+	clearInterval,
 	document: {
 		getElementById(id) {
 			if (!vmEls[id]) {
@@ -511,7 +517,8 @@ const vmCtx = vm.createContext({
 for (const script of scripts) {
 	vm.runInContext(fs.readFileSync(path.join(rootDir, script), 'utf8'), vmCtx, { filename: script });
 }
-c.eq(vmEls['canv'].width, 600, 'all 12 classic scripts boot cleanly in one shared lexical scope');
+c.eq(vmEls['canv'].width, 600, 'all 19 classic scripts boot cleanly in one shared lexical scope');
+c.eq(vm.runInContext('soundContext()', vmCtx), null, 'classic boot creates no AudioContext before user gesture');
 
 c.ok(/id="mirror-count"[^>]*min="1"[^>]*max="49"[^>]*step="1"[^>]*value="11"/.test(html), 'count control HTML bounds and default');
 c.ok(/id="difficulty"[^>]*min="0"[^>]*max="100"[^>]*step="1"[^>]*value="25"/.test(html), 'dial HTML bounds and default');
