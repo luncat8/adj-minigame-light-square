@@ -301,7 +301,9 @@ function auResolvedParams(patch, cfg) {
 	const out = {};
 	for (let i = 0; i < patch.params.length; i++) {
 		const d = patch.params[i];
-		out[d.key] = Number.isFinite(raw[d.key]) ? raw[d.key] : d.def;
+		out[d.key] = d.choices
+			? (d.choices.indexOf(raw[d.key]) >= 0 ? raw[d.key] : d.def)
+			: (Number.isFinite(raw[d.key]) ? raw[d.key] : d.def);
 	}
 	return out;
 }
