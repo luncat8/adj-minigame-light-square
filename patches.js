@@ -4,6 +4,7 @@
 const paChScratch = [0, 0, 0];
 let paSonifyMod = null;
 let paFlowMod = null;
+let paSpecMod = null;
 let paNoiseCtx = null;
 let paNoiseBuf = null;
 
@@ -15,6 +16,11 @@ function paChMidi(noteMidi, chIdx, rootMidi, scale) {
 function paFlow() {
 	if (!paFlowMod && typeof module !== 'undefined' && module.exports) paFlowMod = require('./patchesFlow.js');
 	return paFlowMod;
+}
+
+function paSpec() {
+	if (!paSpecMod && typeof module !== 'undefined' && module.exports) paSpecMod = require('./patchesSpectrum.js');
+	return paSpecMod;
 }
 
 function paHz(midi) {
@@ -436,6 +442,19 @@ const PATCH_LIST = [
 			{ key: 'feedback', label: 'Delay feedback', min: 0, max: 0.75, step: 0.05, def: 0.45 }
 		],
 		note(ac, bus, n, p, when, wave) { const m = paFlow(); (m ? m.pfGrainsNote : pfGrainsNote)(ac, bus, n, p, when, wave); },
+		bed: paBed
+	},
+	{
+		id: 'spectrum',
+		label: 'Spectrum Drift',
+		params: [
+			{ key: 'aim', label: 'Pan aim', choices: ['absolute', 'relative'], def: 'absolute' },
+			{ key: 'drift', label: 'Pan drift', min: 0.05, max: 0.6, step: 0.01, def: 0.24 },
+			{ key: 'glide', label: 'Pan glide', min: 0.04, max: 0.6, step: 0.01, def: 0.28 },
+			{ key: 'tilt', label: 'Doppler tilt', min: 0, max: 1, step: 0.05, def: 0.55 },
+			{ key: 'reverb', label: 'Reverb send', min: 0, max: 1, step: 0.05, def: 0.5 }
+		],
+		note(ac, bus, n, p, when, wave) { const m = paSpec(); (m ? m.psNote : psNote)(ac, bus, n, p, when, wave); },
 		bed: paBed
 	}
 ];
