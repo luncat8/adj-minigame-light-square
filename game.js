@@ -6,7 +6,7 @@ const gTrace = typeof module !== 'undefined' && module.exports ? require('./trac
 const gGoal = typeof module !== 'undefined' && module.exports ? require('./contract.js') : null;
 const gHints = typeof module !== 'undefined' && module.exports ? require('./hints.js') : null;
 const gGen = typeof module !== 'undefined' && module.exports ? require('./generate.js') : null;
-const gRender = typeof module !== 'undefined' && module.exports ? require('./render.js') : null;
+const gRender = typeof module !== 'undefined' && module.exports ? require('./skins.js') : null;
 
 const fCreate = gBoard ? gBoard.createPuzzle : createPuzzle;
 const fCommit = gBoard ? gBoard.commitStart : commitStart;

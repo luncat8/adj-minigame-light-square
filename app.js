@@ -1,6 +1,6 @@
 // owns: root, $ and boot wiring; implements nothing
 
-const aRender = typeof module !== 'undefined' && module.exports ? require('./render.js') : null;
+const aRender = typeof module !== 'undefined' && module.exports ? require('./skins.js') : null;
 const aGame = typeof module !== 'undefined' && module.exports ? require('./game.js') : null;
 const aInput = typeof module !== 'undefined' && module.exports ? require('./input.js') : null;
 

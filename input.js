@@ -3,7 +3,7 @@
 
 const iBoard = typeof module !== 'undefined' && module.exports ? require('./board.js') : null;
 const iGame = typeof module !== 'undefined' && module.exports ? require('./game.js') : null;
-const iRender = typeof module !== 'undefined' && module.exports ? require('./render.js') : null;
+const iRender = typeof module !== 'undefined' && module.exports ? require('./skins.js') : null;
 
 const iN = iBoard ? iBoard.BOARD_N : BOARD_N;
 const iGlass = iBoard ? iBoard.GLASS : GLASS;

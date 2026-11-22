@@ -1,5 +1,5 @@
-// owns: canvas painting of pose, animated beams, receivers and hint overlays
-// edit for: board visuals, dash motion, overlay shapes, sizing
+// owns: the glass render skin — canvas painting of pose, animated beams, receivers and hint overlays
+// edit for: glass skin visuals, dash motion, overlay shapes, sizing (skins.js dispatches the active skin)
 
 const rBoard = typeof module !== 'undefined' && module.exports ? require('./board.js') : null;
 const rGoal = typeof module !== 'undefined' && module.exports ? require('./contract.js') : null;
@@ -46,15 +46,28 @@ let rCanv = null;
 let rCtx = null;
 let rCell = 0;
 let rSel = -1;
+let rRaf = 0;
+let rResize = null;
 const rView = { tiles: null, emitter: 0, seg: null, recv: null, overlays: null, result: null, previewing: false };
 const rPt = { row: 0, col: 0 };
 
-function renderInit(root) {
+function glassInit(root) {
 	rCanv = root;
 	rCtx = root.getContext('2d');
 	sizeCanvas();
-	if (typeof window !== 'undefined') window.addEventListener('resize', sizeCanvas);
-	requestAnimationFrame(rFrame);
+	if (typeof window !== 'undefined') {
+		rResize = sizeCanvas;
+		window.addEventListener('resize', rResize);
+	}
+	rRaf = requestAnimationFrame(rFrame);
+}
+
+// lets the skin dispatcher swap this skin without leaking its loop or resize listener
+function glassStop() {
+	if (typeof window !== 'undefined' && rResize) window.removeEventListener('resize', rResize);
+	if (rRaf && typeof cancelAnimationFrame !== 'undefined') cancelAnimationFrame(rRaf);
+	rRaf = 0;
+	rResize = null;
 }
 
 function sizeCanvas() {
@@ -68,7 +81,7 @@ function sizeCanvas() {
 	rCell = px / RENDER_SPAN;
 }
 
-function renderView(v) {
+function glassView(v) {
 	rView.tiles = v.tiles;
 	rView.emitter = v.emitter;
 	rView.seg = v.seg;
@@ -78,11 +91,11 @@ function renderView(v) {
 	rView.previewing = v.previewing;
 }
 
-function renderSetSelection(ring) {
+function glassSelect(ring) {
 	rSel = ring;
 }
 
-function renderPointToCell(x, y) {
+function glassPoint(x, y) {
 	const rect = rCanv.getBoundingClientRect();
 	const s = rect.width / RENDER_SPAN;
 	const col = Math.floor((x - rect.left) / s - RIM_PAD);
@@ -346,8 +359,9 @@ function drawPreviewTag() {
 if (typeof module !== 'undefined') module.exports = {
 	RIM_PAD,
 	RENDER_SPAN,
-	renderInit,
-	renderView,
-	renderSetSelection,
-	renderPointToCell
+	glassInit,
+	glassStop,
+	glassView,
+	glassSelect,
+	glassPoint
 };

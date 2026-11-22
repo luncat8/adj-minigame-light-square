@@ -59,7 +59,9 @@ getObj().data().action()
 	presets.js — owns compact count-preserving fallback templates and their decoding. edit for template codec; data is rebuilt by experiments/build_presets.js.
 	generate.js — owns solvable generation, dial profile, walk-score selection and verified count-specific fallback. edit for sampling, profile anchors, scramble policy, candidate selection and metadata.
 	rim.js — owns out-of-border rim items (boiler, lamp, billboard, crystal, detector, power cell, rail) and receiver-to-item wiring. edit for rim visuals, wiring and state animations.
-	render.js — owns canvas painting of pose, animated beams, receivers, overlays and sizing. edit for board visuals, dash motion, overlay shapes.
+	render.js — owns the glass render skin: canvas painting of pose, animated beams, receivers, overlays and sizing. edit for glass skin visuals, dash motion, overlay shapes.
+	renderAlt.js — owns the prototype render skin: rounded glass, solid additive beams, diamond targets. edit for prototype skin visuals, beam glow, overlay shapes.
+	skins.js — owns render skin selection and the page-facing render entry points. edit for adding or switching a skin; skins expose interface-named functions (glass*, renderAlt*).
 	game.js — owns live puzzle/progress state, normalized generation settings, preview switching and active readouts. edit for game flow, settings normalization and wording.
 	input.js — owns pointer, wheel, drag gestures, ring keys, bindings, setting labels and regenerate-on-change triggers. edit for bindings, labels, drag tuning and hit rules.
 	app.js — composer: root, $ and boot wiring only. implements nothing.
@@ -73,6 +75,7 @@ getObj().data().action()
 	experiments/compare.js — owns keyed diff of two fixed-key logs with abs/rel thresholds.
 	experiments/build_presets.js — owns deterministic preset catalog construction. run to rewrite PRESET_CODES in presets.js.
 	experiments/dom_smoke.js — owns integration and classic-scope smoke under a stub DOM. edit for boot, handlers, regenerate-on-change controls and rim-item coverage.
+	experiments/skin_fixtures.js — owns render skin dispatch smoke. edit for skin switch, prototype paint and rim-item adoption.
 - new code goes to its owner, never appended "because the file is already there". no owner exists -> new file + header + map entry.
 - file > ~500 lines = defect. split by feature within the same plan.
 - moves are pure moves: contiguous ranges, snap to enclosing declarations, no behavior change.
@@ -142,7 +145,8 @@ getObj().data().action()
 
 ## current workstream
 
-0.1–0.6 implemented. Play surface animates short directed beam dashes from emitter to receiver and paints reactive rim items in `RIM_PAD` margin (`rim.js` via `render.js`), each lit receiver wired to its side item with a bottom power cell, driven by `contractState(result)` without touching trace or scoring. `dom_smoke.js` covers handlers, rim states and shared classic-script scope; L2 = all six fixture scripts whenever `index.html` or load order changes.
+0.1–0.6 implemented. Play surface animates short directed beam dashes from emitter to receiver and paints reactive rim items in `RIM_PAD` margin (`rim.js` via `render.js`), each lit receiver wired to its side item with a bottom power cell, driven by `contractState(result)` without touching trace or scoring. `dom_smoke.js` covers handlers, rim states and shared classic-script scope; L2 = all seven fixture scripts whenever `index.html` or load order changes.
+0.9 done: render is an optional skin behind `skins.js`; two skins ship — `render.js` (glass, default) and `renderAlt.js` (prototype, adopted from the old prototype render, now also rendering the 0.6 rim items). Look `<select>` switches at runtime without touching the puzzle or progress; `skin_fixtures.js` covers the dispatch, prototype paint and rim adoption.
 0.8 step 1 done: `generate(seed, mode, corner, difficulty, mirrorCount = 11)` samples exact counts via `profile()`; fallback is the verified per-count catalog in `presets.js`.
 0.8 steps 2–3 done: `contractWon` (contract.js), `measureWalks` and diagnostic `shortestSolve` (difficulty.js); generation selects the closest walk score from up to 8 verified candidates under one attempt budget, with isolated measurement streams and result metadata.
 0.8 step 4 done: exact-count and continuous difficulty controls default to 11/49 and 25/100; committed changes to any setting regenerate immediately (input events only relabel); game.js reports active metadata/preset status.

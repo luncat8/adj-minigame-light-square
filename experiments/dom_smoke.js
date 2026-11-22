@@ -110,7 +110,7 @@ c.ok($('readout-generation').textContent.includes('Active · Mirrors 11/49 · re
 c.ok($('readout-generation').textContent.includes('walk escape ' + Math.round(live().gen.measurement.winRate * 100) + '%'), 'active summary reports measured win rate');
 c.eq(live().view.tiles, live().puzzle.tiles, 'view shows live tiles');
 c.eq(live().view.result, live().progress.result, 'view publishes live contract result');
-c.eq(render.renderPointToCell(5, 5), null, 'outer rim margin ignores board hit-test');
+c.eq(render.glassPoint(5, 5), null, 'outer rim margin ignores board hit-test');
 pump(1, 80);
 const off80 = dashOffsets[0];
 pump(1, 160);
