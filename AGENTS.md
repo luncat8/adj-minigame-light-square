@@ -64,9 +64,10 @@ getObj().data().action()
 	skins.js — owns render skin selection, beam ray style and the page-facing render entry points. edit for adding or switching a skin or ray style; skins expose interface-named functions (glass*, renderAlt*).
 	sonify.js — owns DOM-free trace-event to score mapping, musical scales, pitch sources, density caps and leak gating. edit for mappings, scales and caps.
 	patchesFlow.js — owns continuous branch-following and granular synth variants (Prism Pad, Comet, Crystal Grains). edit for portamento, HRTF Doppler and grain clouds.
-	patches.js — owns synth variant table, param schemas, struck/groove variants (Glass Harp, Pulse), harmonic bed, emitter breath and win flourish. edit for variant registry and struck/bed timbres.
+	patchesSpectrum.js — owns the Spectrum Drift noise-band variant: R/G/B bands as subtractive color, direction-driven per-band pan. edit for band crossovers, aim modes, drift and tilt rules.
+	patches.js — owns synth variant table, param schemas (ranges and choice selects), struck/groove variants (Glass Harp, Pulse), harmonic bed, emitter breath and win flourish. edit for variant registry and struck/bed timbres.
 	audio.js — owns AudioContext lifecycle, master bus, reverb IR, lookahead scheduler, waves, bed crossfade and soundView sink. edit for timing, mixing, ghost preview and polyphony cap.
-	soundpanel.js — owns Sound panel DOM controls, dynamic variant parameter block, mute toggle and localStorage persistence. edit for controls, defaults and storage schema.
+	soundpanel.js — owns Sound panel DOM controls, dynamic variant parameter block (ranges and choice selects), mute toggle and localStorage persistence. edit for controls, defaults and storage schema.
 	game.js — owns live puzzle/progress state, normalized generation settings, preview switching and active readouts. edit for game flow, settings normalization and wording.
 	input.js — owns pointer, wheel, drag gestures, ring keys, bindings, setting labels and regenerate-on-change triggers. edit for bindings, labels, drag tuning and hit rules.
 	app.js — composer: root, $ and boot wiring only. implements nothing.
@@ -155,8 +156,9 @@ getObj().data().action()
 
 0.1–0.6 + 0.9 done: 15×15 board with 49 rotatable glass cells (`CELL_SHADE` + `CELL_GLYPHS`), RGB trace, secret contract + hints, two render skins (`render.js` glass, `renderAlt.js` prototype) behind `skins.js` with `ray` core selector, and reactive `RIM_PAD` items (`rim.js`).
 0.8 automated steps done: exact-count generation (`1..49` mirrors, verified `presets.js` fallback), walk-score selection (`0.20 + 0.80·d` calibrated on held-out seeds, `difficulty.js` BFS diagnostics), and immediate regenerate-on-change controls.
-0.7 automated steps done: `trace.js` logs depth-monotonic photon events (`EV_GLASS`/`FILTER`/`REFLECT`/`SPLIT`/`ABSORB`, branch + fork ids, cumulative bend/bounce, `|Δ gen_ms| <= 4.6%`); `sonify.js` snapshots leak-safe preallocated scores; `audio.js` + `patches.js` + `patchesFlow.js` + `soundpanel.js` drive lazy Web Audio waves, 5 synth variants, sustained receiver bed, ghost preview, win flourish, `M` mute and `localStorage` persistence (`sonify_fixtures`, `sound_smoke`, 19-script `dom_smoke`).
-next: 0.7 + 0.8 browser manual passes (listening pass in `0.7-Sound-photon-sonification-and-sound-panel-plan.md`, feel pass in `0.8-Sparse-mirrors-and-measured-difficulty-plan.md`). deferred: visible photon head (`0.7` optional step), emitter width (`0.1`), ring rotation transition polish.
+0.7 automated steps done: `trace.js` logs depth-monotonic photon events (`EV_GLASS`/`FILTER`/`REFLECT`/`SPLIT`/`ABSORB`, branch + fork ids, cumulative bend/bounce, `|Δ gen_ms| <= 4.6%`); `sonify.js` snapshots leak-safe preallocated scores; `audio.js` + `patches.js` + `patchesFlow.js` + `soundpanel.js` drive lazy Web Audio waves, sustained receiver bed, ghost preview, win flourish, `M` mute and `localStorage` persistence (`sonify_fixtures`, `sound_smoke`, 20-script `dom_smoke`).
+0.10 done: sixth synth variant `Spectrum Drift` (`patchesSpectrum.js`): per-branch noise voice whose R/G/B band filters are the spectrum, splits redirect bands subtractively (fork aliases the parent voice), per-band pan driven by travel direction with absolute|relative aim (first choice params: panel selects + audio resolver), doppler tilt for vertical travel, landing pings, 6-voice registry with slot recycle; notes carry `ref` reflect bits (`sonify_fixtures` +2).
+next: 0.7 + 0.8 + 0.10 browser manual passes (listening pass in `0.7-Sound-photon-sonification-and-sound-panel-plan.md`, feel pass in `0.8-Sparse-mirrors-and-measured-difficulty-plan.md`, aim/drift/tilt pass in `0.10-Spectrum-drift-synth-plan.md`). deferred: visible photon head (`0.7` optional step), emitter width (`0.1`), ring rotation transition polish.
 
 ## housekeeping
 
