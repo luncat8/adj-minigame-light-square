@@ -67,8 +67,20 @@ laser width from thin (visually) to 3 cells (light in all 3).
 make some out of border of the square - interesting items that will be activated once proper laser light on it. to visually make interesting goal to reach. Examples: long tube with boiling water, lamp, detector, magic crystal, neon chinese billboard.
 visually wired or connected to target cells. typically correspond to target cell on it side. and add some item for bottom side
 
+## design
+
+make cells of rotated square area a bit lighter then other cells and a bit random brightness
 
 ## low priority
+
+
+## sound
+
+checkbox Sound on
+on check - enable sound
+if checked sound enabled also on any click, because we cant enable without click in default Chromium.
+
+add sound of squares rotation itself and movement of laser (x position)
 
 ### sound generator and settings panel to it
 
