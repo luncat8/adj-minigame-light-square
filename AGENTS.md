@@ -51,7 +51,7 @@ getObj().data().action()
 
 - keep this map updated when ownership changes:
 	index.html — owns canvas root, controls and script load order. edit for load order and markup.
-	board.js — owns geometry, ring strides, cell relief glyph map, player moves, emitter. edit for stride table, corner rule, center flip, cell glyph table, emitter range.
+	board.js — owns geometry, ring strides, cell relief glyph map, side tint groups, player moves, emitter. edit for stride table, corner rule, center flip, cell glyph table, side tint strips, emitter range.
 	trace.js — owns light transport trace and buffers. edit for propagation rules, mirror splits.
 	contract.js — owns secret contracts, scoring, allocation-free win predicate and discovery history. edit for quotas, colors and feedback.
 	difficulty.js — owns fixed-budget walk score and bounded shortest-solve BFS diagnostics. edit for walk budget, action graph, BFS cap and turn tables.
@@ -59,22 +59,22 @@ getObj().data().action()
 	presets.js — owns compact count-preserving fallback templates and their decoding. edit for template codec; data is rebuilt by experiments/build_presets.js.
 	generate.js — owns solvable generation, dial profile, walk-score selection and verified count-specific fallback. edit for sampling, profile anchors, scramble policy, candidate selection and metadata.
 	rim.js — owns out-of-border rim items (boiler, lamp, billboard, crystal, detector, power cell, rail) and receiver-to-item wiring. edit for rim visuals, wiring and state animations.
-	render.js — owns the glass render skin: canvas painting of pose, animated beams, receivers, overlays and sizing. edit for glass skin visuals, dash motion, overlay shapes.
-	renderAlt.js — owns the prototype render skin: rounded glass, solid additive beams, diamond targets. edit for prototype skin visuals, beam glow, overlay shapes.
+	render.js — owns the glass render skin: canvas painting of pose, animated beams, receivers, overlays and sizing. edit for glass skin visuals, side tints, dash motion, overlay shapes.
+	renderAlt.js — owns the prototype render skin: rounded glass, solid additive beams, diamond targets. edit for prototype skin visuals, side tints, beam glow, overlay shapes.
 	skins.js — owns render skin selection, beam ray style and the page-facing render entry points. edit for adding or switching a skin or ray style; skins expose interface-named functions (glass*, renderAlt*).
 	sonify.js — owns DOM-free trace-event to score mapping, musical scales, pitch sources, density caps and leak gating. edit for mappings, scales and caps.
 	patchesFlow.js — owns continuous branch-following and granular synth variants (Prism Pad, Comet, Crystal Grains). edit for portamento, HRTF Doppler and grain clouds.
 	patchesSpectrum.js — owns the Spectrum Drift noise-band variant: R/G/B bands as subtractive color, direction-driven per-band pan. edit for band crossovers, aim modes, drift and tilt rules.
 	patches.js — owns synth variant table, param schemas (ranges and choice selects), struck/groove variants (Glass Harp, Pulse), harmonic bed, emitter breath and win flourish. edit for variant registry and struck/bed timbres.
-	soundfx.js — owns movement sound dispatch, drum mechanism and s2 (bearing) synthesis. edit for drum/bearing timbres, ring mass scaling and rail slide acoustics.
-	soundfxNatural.js — owns noise-excited natural movement foley, irregular brush layers and muted material contacts. edit for natural ring/rail timbre and settling.
+	soundfx.js — owns movement sound dispatch, drum mechanism and s2 (bearing) synthesis; noise1/noise2 route to soundfxNatural.js. edit for dispatch, drum/bearing timbres, ring mass scaling and rail slide acoustics.
+	soundfxNatural.js — owns noise-excited movement foley: noise2 material contacts and the noise1 felt glide. edit for noise1/noise2 ring/rail timbre, glide sweeps and settling.
 	audio.js — owns AudioContext lifecycle, master/sfx buses, reverb IR, lookahead scheduler, waves, bed crossfade and soundView/sfx sinks. edit for timing, mixing, ghost preview and polyphony cap.
-	soundpanel.js — owns Sound panel DOM controls, Sound on checkbox + click-anywhere gesture unlock, movement sound selector with voice auto-switch (spectrum -> drum, else natural), dynamic variant parameter block and localStorage persistence. edit for controls, defaults and storage schema.
-	game.js — owns live puzzle/progress state, normalized generation settings, preview switching and active readouts. edit for game flow, settings normalization and wording.
+	soundpanel.js — owns Sound panel DOM controls, Sound on checkbox + click-anywhere gesture unlock, movement sound selector with voice auto-switch (spectrum -> drum, else noise1), dynamic variant parameter block and localStorage persistence. edit for controls, defaults and storage schema.
+	game.js — owns live puzzle/progress state, normalized generation settings, preview switching and view publication (sideTint). edit for game flow, settings normalization and wording.
 	input.js — owns pointer, wheel, drag gestures, ring keys, bindings, setting labels and regenerate-on-change triggers. edit for bindings, labels, drag tuning and hit rules.
 	app.js — composer: root, $ and boot wiring only. implements nothing.
 	experiments/check.js — owns fixture assertion counters. edit for assertion helpers.
-	experiments/move_fixtures.js — owns 0.1 move invariant fixtures. edit for stride, corner, center, emitter cases.
+	experiments/move_fixtures.js — owns 0.1 move invariant fixtures. edit for stride, corner, center, side tint strips, emitter cases.
 	experiments/trace_fixtures.js — owns 0.2 transport fixtures. edit for propagation cases.
 	experiments/contract_fixtures.js — owns 0.3 scoring, discovery, contractState, hint and script-order fixtures. edit for contract cases.
 	experiments/generate_fixtures.js — owns 0.4/0.8 generation acceptance. edit for count, profile, scramble, selection, catalog and fallback cases.
@@ -83,7 +83,7 @@ getObj().data().action()
 	experiments/compare.js — owns keyed diff of two fixed-key logs with abs/rel thresholds.
 	experiments/build_presets.js — owns deterministic preset catalog construction. run to rewrite PRESET_CODES in presets.js.
 	experiments/dom_smoke.js — owns integration and classic-scope smoke under a stub DOM. edit for boot, handlers, regenerate-on-change controls and rim-item coverage.
-	experiments/skin_fixtures.js — owns render skin dispatch smoke. edit for skin switch, prototype paint and rim-item adoption.
+	experiments/skin_fixtures.js — owns render skin dispatch smoke. edit for skin switch, side tints, prototype paint and rim-item adoption.
 	experiments/sonify_fixtures.js — owns 0.7 score mapping, scale membership, caps, leak rule and bed fixtures. edit for sonification cases.
 	experiments/score_dump.js — owns 0.7 event-count, chord-density and duration measurement across generated puzzles.
 	experiments/sound_smoke.js — owns 0.7 AudioContext, scheduler, wave lifecycle, variants, Sound panel and persistence smoke.
@@ -162,7 +162,10 @@ getObj().data().action()
 0.7.5 done: sixth synth variant `Spectrum Drift` (`patchesSpectrum.js`): per-branch noise voice whose R/G/B band filters are the spectrum, splits redirect bands subtractively (fork aliases the parent voice), per-band pan driven by travel direction with absolute|relative aim (first choice params: panel selects + audio resolver), doppler tilt for vertical travel, landing pings, 6-voice registry with slot recycle; notes carry `ref` reflect bits (`sonify_fixtures` +2).
 0.7.6 done: `Sound on` checkbox (checked by default, persisted, `M` toggle) unlocks Web Audio on check and on any click while checked for Chromium autoplay; `soundfx.js` adds dry low-mechanism square rotation SFX (scaled by ring mass and quarter/single stride) and x-panned emitter rail slide + detent SFX (`sound_smoke` 62/62, `dom_smoke` 243/243).
 0.7.7 done: movement sound selector (`#snd-move`, persisted `moveSound`) with voice auto-switch (`spectrum` -> drum mechanism, every other voice -> prolonged rusty-bearing roll with per-slot/per-column tonal accents); manual choice sticks until the next voice change, legacy storage derives from the voice (`sound_smoke` 91/91, `dom_smoke` 246/246).
-next: 0.7 + 0.7.5 + 0.7.6 + 0.7.7 + 0.8 browser manual passes (listening pass in `0.7-Sound-photon-sonification-and-sound-panel-plan.md`, aim/drift/tilt pass in `0.7.5-Spectrum-drift-synth-plan.md`, mechanism/rail/unlock pass in `0.7.6-Sound-checkbox-and-mechanism-sfx-plan.md`, movement selector/bearing pass in `0.7.7-Movement-sound-selector-plan.md`, feel pass in `0.8-Sparse-mirrors-and-measured-difficulty-plan.md`). deferred: visible photon head (`0.7` optional step), emitter width (`0.1`), ring rotation transition polish.
+0.7.8 done: natural movement foley (`soundfxNatural.js`) — noise-excited irregular brushes, muted slot knocks, fixed material modes, no oscillators/LFO — became the default `natural mechanism`; bearing kept as `s2` (`sound_smoke` 105/105, `dom_smoke` 247/247).
+0.9.1 done: quarter-turn cells tint per side — `CELL_SIDE` strips of `side-1` slots travel with tile glyphs in both skins (restart/preview keep them); single slots keep per-cell `CELL_SHADE`.
+0.7.9 done: `natural mechanism` relabeled `noise2` (value kept); new default `noise1` felt glide — direction-swept noise bands, dark mass, sparse air, soft settle, no knocks and no oscillators; spectrum still auto-selects drum (`sound_smoke` 118/118, `dom_smoke` 248/248, full suite 1537/1537).
+next: browser manual passes (listening pass in `0.7-Sound-photon-sonification-and-sound-panel-plan.md`, aim/drift/tilt pass in `0.7.5-Spectrum-drift-synth-plan.md`, mechanism/rail/unlock pass in `0.7.6-Sound-checkbox-and-mechanism-sfx-plan.md`, movement selector/bearing pass in `0.7.7-Movement-sound-selector-plan.md`, noise1/noise2 pass in `0.7.9-Noise1-default-movement-sound-plan.md`, side tint pass in `0.9.1-Side-tint-rotation-tracking-plan.md`, feel pass in `0.8-Sparse-mirrors-and-measured-difficulty-plan.md`). deferred: visible photon head (`0.7` optional step), emitter width (`0.1`), ring rotation transition polish.
 
 ## housekeeping
 
