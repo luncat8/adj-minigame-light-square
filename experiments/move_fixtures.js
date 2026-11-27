@@ -188,6 +188,20 @@ for (let r = 0; r < 3; r++) {
 	c.same(gp.glyphs, gp.startGlyphs, 'quarter lap restores glyphs r=' + r);
 }
 
+// side tint strips: contiguous quarter-turn strides; a quarter carries strip b onto strip b+1
+for (let r = 0; r < 3; r++) {
+	const cells = board.RING_CELLS[r];
+	const seg = board.RING_SIDE[r] - 1;
+	let strips = true;
+	for (let s = 0; s < cells.length; s++) {
+		if (board.CELL_SIDE[cells[s]] !== ((s / seg) | 0)) strips = false;
+		if (board.CELL_SIDE[cells[(s + seg) % cells.length]] !== (board.CELL_SIDE[cells[s]] + 1) % 4) strips = false;
+	}
+	c.ok(strips, 'ring ' + r + ' side tint strips rotate with quarter turns');
+}
+c.eq(board.CELL_SIDE[board.CENTER_CELL], 4, 'center keeps its own tint group');
+c.eq(board.CELL_SIDE[board.GLYPH_CENTER_ALT], 4, 'center flip glyph shares the center tint');
+
 // outer ring moves leave the center alone
 const ringC = puzzle(board.MODE_QUARTER, true);
 const centerBefore = ringC.tiles[board.CENTER_CELL];
