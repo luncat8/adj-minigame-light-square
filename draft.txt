@@ -88,6 +88,11 @@ introduce new selector of gui and movement sound and current selected automatica
 
 for other synth modes need something completely different - more prolonged, like rolling rusty bearings with some tonal accents each slot changed
 
+TODO
+rename "natural mechanism" option to 'noise2'
+make something better for default option without so simple electronic feeling. not a drum-noise step-like sound
+
+
 ### sound generator and settings panel to it
 
 make some interesting and good sounding synth, that react on current laser configuration.
