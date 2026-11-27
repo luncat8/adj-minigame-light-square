@@ -69,7 +69,11 @@ visually wired or connected to target cells. typically correspond to target cell
 
 ## design
 
-make cells of rotated square area a bit lighter then other cells and a bit random brightness
+make cells of rotated square area a bit lighter then other cells and a bit random brightness background
+
+in quarter turns mode - draw cells background not each cell different but tint per side to easy visually track rotation
+
+
 
 ## low priority
 
