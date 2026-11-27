@@ -13,6 +13,7 @@ const aDiag = aBoard ? aBoard.TILE_DIAG : TILE_DIAG;
 const aSide = aBoard ? aBoard.RING_SIDE : RING_SIDE;
 const aGlyphs = aBoard ? aBoard.CELL_GLYPHS : CELL_GLYPHS;
 const aCellShade = aBoard ? aBoard.CELL_SHADE : CELL_SHADE;
+const aCellSide = aBoard ? aBoard.CELL_SIDE : CELL_SIDE;
 const aShadeSteps = aBoard ? aBoard.SHADE_STEPS : SHADE_STEPS;
 const aAny = aGoal ? aGoal.CONTRACT_ANY : CONTRACT_ANY;
 const aDrawRim = aRim ? aRim.drawRimItems : drawRimItems;
@@ -32,6 +33,8 @@ const aOuterEdge = 'rgba(120,175,245,0.14)';
 const aGlassEdge = 'rgba(145,205,255,0.26)';
 const aGlassShades = Array.from({ length: aShadeSteps }, (_, i) =>
 	'rgba(105,170,250,' + (0.115 + (i / (aShadeSteps - 1)) * 0.08).toFixed(3) + ')');
+// quarter mode fills side strips that travel with tile identity (0 red, 1 green, 2 blue, 3 amber); center stays neutral
+const aGlassTints = ['rgba(188,92,82,0.16)', 'rgba(88,164,100,0.15)', 'rgba(92,114,206,0.18)', 'rgba(196,152,78,0.15)', 'rgba(110,150,220,0.09)'];
 const aSlotDim = 'rgba(150,160,180,0.4)';
 const aInk = 'rgba(236,240,248,0.9)';
 const aInkHalf = 'rgba(236,240,248,0.45)';
@@ -40,8 +43,7 @@ const aChannel = ['rgb(255,52,40)', 'rgb(64,255,72)', 'rgb(92,108,255)'];
 const aMask = [null,
 	'rgb(255,96,96)', 'rgb(96,255,96)', 'rgb(255,255,96)',
 	'rgb(96,96,255)', 'rgb(255,96,255)', 'rgb(96,255,255)', 'rgb(224,228,236)'];
-const aStepX = [0, 1, 0, -1];
-const aStepY = [-1, 0, 1, 0];
+const aStepX = [0, 1, 0, -1]; const aStepY = [-1, 0, 1, 0];
 const aDashNone = [];
 const aTa = Math.PI * 2;
 // thin-core ray styles pushed by skins.js (0 lines, 1 fast long dashes, 2 short); glow passes stay solid as in the prototype
@@ -63,10 +65,8 @@ let aCtx = null;
 let aCell = 0;
 let aSelRing = -1;
 let aRay = 2;
-let aRaf = 0;
-let aResize = null;
-let aBg = null;
-const aView = { tiles: null, glyphs: null, shadeOff: 0, emitter: 0, seg: null, recv: null, overlays: null, result: null, previewing: false };
+let aRaf = 0, aResize = null, aBg = null;
+const aView = { tiles: null, glyphs: null, shadeOff: 0, sideTint: false, emitter: 0, seg: null, recv: null, overlays: null, result: null, previewing: false };
 const aPt = { row: 0, col: 0 };
 
 function renderAltInit(root) {
@@ -91,6 +91,7 @@ function renderAltView(v) {
 	aView.tiles = v.tiles;
 	aView.glyphs = v.glyphs || null;
 	aView.shadeOff = v.shadeOff || 0;
+	aView.sideTint = !!v.sideTint;
 	aView.emitter = v.emitter;
 	aView.seg = v.seg;
 	aView.recv = v.recv;
@@ -206,8 +207,8 @@ function drawAltGlyphs(ctx) {
 function altCellFill(r, c, border, rot, glyphs) {
 	if (border) return aBorderFill;
 	if (!rot) return aOuterFill;
-	const gi = (r - aGlassOff) * aGlass + (c - aGlassOff);
-	return aGlassShades[aCellShade[((glyphs ? glyphs[gi] : gi) + aView.shadeOff) % aCellShade.length]];
+	const gi = (r - aGlassOff) * aGlass + (c - aGlassOff), id = glyphs ? glyphs[gi] : gi;
+	return aView.sideTint ? aGlassTints[aCellSide[id]] : aGlassShades[aCellShade[(id + aView.shadeOff) % aCellShade.length]];
 }
 
 function drawAltGlass(ctx) {
