@@ -489,17 +489,17 @@ store.set(panel.SP_STORAGE_KEY, '{corrupt json');
 panel.soundPanelInit();
 c.ok(panel.soundPanelSettings().variant === 'glass' && panel.soundPanelSettings().speed === 4 && panel.soundPanelSettings().scale === 'majorPent', 'corrupt localStorage falls back cleanly to defaults');
 
-// 12. Movement sound selector: auto-switch, manual override, persistence and natural synthesis
-c.eq(panel.soundPanelSettings().moveSound, 'natural', 'legacy storage without moveSound derives natural for glass');
-c.eq($('snd-move').value, 'natural', 'snd-move select syncs natural for glass');
+// 12. Movement sound selector: auto-switch, manual override, persistence and noise1/noise2 synthesis
+c.eq(panel.soundPanelSettings().moveSound, 'noise1', 'legacy storage without moveSound derives noise1 for glass');
+c.eq($('snd-move').value, 'noise1', 'snd-move select syncs noise1 for glass');
 $('snd-variant').value = 'spectrum';
 $('snd-variant').fire('change');
 c.eq(panel.soundPanelSettings().moveSound, 'drum', 'spectrum auto-selects drum mechanism');
 c.eq($('snd-move').value, 'drum', 'spectrum syncs snd-move to drum');
 $('snd-variant').value = 'pulse';
 $('snd-variant').fire('change');
-c.eq(panel.soundPanelSettings().moveSound, 'natural', 'non-spectrum auto-selects natural mechanism');
-c.eq($('snd-move').value, 'natural', 'non-spectrum syncs snd-move to natural');
+c.eq(panel.soundPanelSettings().moveSound, 'noise1', 'non-spectrum auto-selects noise1');
+c.eq($('snd-move').value, 'noise1', 'non-spectrum syncs snd-move to noise1');
 $('snd-move').value = 'drum';
 $('snd-move').fire('change');
 c.eq(panel.soundPanelSettings().moveSound, 'drum', 'manual snd-move choice stores drum');
@@ -508,8 +508,8 @@ c.eq(panel.soundPanelSettings().moveSound, 'drum', 'manual choice persists acros
 c.eq($('snd-move').value, 'drum', 'manual choice syncs select after reinit');
 $('snd-variant').value = 'glass';
 $('snd-variant').fire('change');
-c.eq(panel.soundPanelSettings().moveSound, 'natural', 'next voice change re-autos manual override');
-c.eq(JSON.parse(store.get(panel.SP_STORAGE_KEY)).moveSound, 'natural', 'moveSound persists under single localStorage key');
+c.eq(panel.soundPanelSettings().moveSound, 'noise1', 'next voice change re-autos manual override');
+c.eq(JSON.parse(store.get(panel.SP_STORAGE_KEY)).moveSound, 'noise1', 'moveSound persists under single localStorage key');
 
 store.set(panel.SP_STORAGE_KEY, JSON.stringify({ variant: 'spectrum', volume: 0.7, speed: 4, mode: 'move', scale: 'majorPent', root: 'C', pitchSource: 'position', width: 0.85, reverb: 0.45, bedLevel: 0.5, params: {} }));
 panel.soundPanelInit();
@@ -517,11 +517,11 @@ c.eq(panel.soundPanelSettings().moveSound, 'drum', 'legacy spectrum storage deri
 c.eq($('snd-move').value, 'drum', 'legacy spectrum syncs drum select');
 $('snd-variant').value = 'glass';
 $('snd-variant').fire('change');
-c.eq(panel.soundPanelSettings().moveSound, 'natural', 'restore glass re-autos natural');
+c.eq(panel.soundPanelSettings().moveSound, 'noise1', 'restore glass re-autos noise1');
 
 store.set(panel.SP_STORAGE_KEY, JSON.stringify({ variant: 'glass', moveSound: 'bogus', volume: 0.7, speed: 4, mode: 'move', scale: 'majorPent', root: 'C', pitchSource: 'position', width: 0.85, reverb: 0.45, bedLevel: 0.5, params: {} }));
 panel.soundPanelInit();
-c.eq(panel.soundPanelSettings().moveSound, 'natural', 'invalid moveSound falls back to auto value');
+c.eq(panel.soundPanelSettings().moveSound, 'noise1', 'invalid moveSound falls back to auto value');
 
 // drum stays short with a single detent; bearing rolls prolonged with per-slot tonal accents
 // direct fx calls isolate SFX oscs from the bed/wave oscs a button move also schedules
@@ -580,12 +580,14 @@ $('snd-variant').value = 'glass';
 $('snd-variant').fire('change');
 osc0 = activeAc.oscs.length;
 $('btn-cw-0').fire('click');
-c.eq(panel.soundPanelSettings().moveSound, 'natural', 'glass selects natural foley for the next move');
+c.eq(panel.soundPanelSettings().moveSound, 'noise1', 'glass selects the noise1 glide for the next move');
 
 // Natural foley: irregular noise contacts, fixed material modes, bounded tails and positional rail.
 const sourceNodes = start => connections.slice(start).filter(([src]) => src.kind === 'bufsrc').map(([src]) => src);
 let naturalVoice = null;
 const captureNatural = (gain, endAt, node) => { naturalVoice = { gain, endAt, node }; };
+let flowVoice = null;
+const captureFlow = (gain, endAt, node) => { flowVoice = { gain, endAt, node }; };
 advance(500);
 osc0 = activeAc.oscs.length;
 let conn0 = connections.length;
@@ -615,6 +617,39 @@ sfx.fxLaser(activeAc, sfxBus, 13, 13, 0, 'natural', captureNatural);
 c.eq(sourceNodes(conn0).length, 4, 'rail end stop is a short contact without a scrape');
 c.eq(lastSfxPan(), 0, 'zero width keeps natural rail centered');
 c.ok(naturalVoice.endAt - activeAc.currentTime < 0.2, 'natural rail end stop remains short');
+
+// noise1: one continuous felt glide per move — swept noise bands, no oscillators, no per-slot knocks
+advance(500);
+osc0 = activeAc.oscs.length;
+conn0 = connections.length;
+filter0 = activeAc.filters.length;
+sfx.fxRotate(activeAc, sfxBus, 0, 1, 0, 0.85, 'noise1', captureFlow);
+const flowSources = sourceNodes(conn0);
+const flowFilters = activeAc.filters.slice(filter0);
+c.eq(activeAc.oscs.length, osc0, 'noise1 rotation creates no pitched oscillators or periodic LFOs');
+c.eq(flowSources.length, 6, 'noise1 outer quarter layers glide, mass, air and settle without slot knocks');
+c.ok(flowFilters.some(f => f.frequency.events.length > 1), 'noise1 glide sweeps its band smoothly with direction');
+c.ok(flowSources.every(src => src.stoppedAt > src.startedAt && src.stoppedAt <= flowVoice.endAt), 'all noise1 sources stop within the registered voice lifetime');
+c.ok(flowVoice.endAt - activeAc.currentTime > 0.4 && flowVoice.endAt - activeAc.currentTime < 0.65, 'outer noise1 movement has a smooth bounded tail');
+const flowOuterHz = flowFilters[0].frequency.events[0][1];
+advance(500);
+filter0 = activeAc.filters.length;
+conn0 = connections.length;
+sfx.fxRotate(activeAc, sfxBus, 3, -1, 0, 0.85, 'noise1', captureFlow);
+const flowCenterFilters = activeAc.filters.slice(filter0);
+c.ok(flowCenterFilters[0].frequency.events[0][1] > flowOuterHz, 'smaller rings glide with lighter material');
+c.ok(flowCenterFilters[0].frequency.events[1][1] < flowCenterFilters[0].frequency.events[0][1], 'noise1 ccw glide sweeps downward');
+advance(500);
+conn0 = connections.length;
+sfx.fxLaser(activeAc, sfxBus, 1, 13, 0.85, 'noise1', captureFlow);
+c.eq(sourceNodes(conn0).length, 6, 'noise1 rail slides as one continuous glide');
+c.ok(lastSfxPan() > 0.8, 'noise1 rail follows emitter stereo position');
+conn0 = connections.length;
+sfx.fxLaser(activeAc, sfxBus, 13, 13, 0, 'noise1', captureFlow);
+c.eq(sourceNodes(conn0).length, 3, 'noise1 rail end stop is a soft contact without a scrape');
+c.eq(lastSfxPan(), 0, 'zero width keeps noise1 rail centered');
+c.ok(flowVoice.endAt - activeAc.currentTime < 0.2, 'noise1 rail end stop remains short');
+
 $('snd-move').value = 'bearing';
 $('snd-move').fire('change');
 panel.soundPanelInit();
@@ -622,6 +657,10 @@ c.eq(panel.soundPanelSettings().moveSound, 'bearing', 's2 keeps its stored beari
 $('snd-move').value = 'natural';
 $('snd-move').fire('change');
 panel.soundPanelInit();
-c.eq(panel.soundPanelSettings().moveSound, 'natural', 'natural choice persists across reload');
+c.eq(panel.soundPanelSettings().moveSound, 'natural', 'natural choice persists across reload as noise2');
+$('snd-move').value = 'noise1';
+$('snd-move').fire('change');
+panel.soundPanelInit();
+c.eq(panel.soundPanelSettings().moveSound, 'noise1', 'noise1 choice persists across reload');
 
 c.report('sound_smoke');
