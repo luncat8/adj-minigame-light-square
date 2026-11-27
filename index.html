@@ -96,9 +96,10 @@
 <option value="grains">Crystal Grains</option>
 <option value="spectrum">Spectrum Drift</option>
 </select>
-<select id="snd-move" title="Movement sound for square rotations and laser rail. Spectrum Drift auto-selects drum mechanism, other voices auto-select rusty bearings; a manual choice sticks until the voice changes.">
+<select id="snd-move" title="Movement sound for square rotations and laser rail. Spectrum Drift auto-selects drum mechanism, other voices auto-select natural mechanism; a manual choice sticks until the voice changes.">
+<option value="natural" selected>natural mechanism</option>
 <option value="drum">drum mechanism</option>
-<option value="bearing" selected>rusty bearings</option>
+<option value="bearing">s2</option>
 </select>
 <label for="snd-volume" id="snd-volume-label">Vol 70%</label>
 <input type="range" id="snd-volume" min="0" max="100" step="1" value="70" title="Master output volume.">
@@ -157,6 +158,7 @@
 <script src="patchesFlow.js"></script>
 <script src="patchesSpectrum.js"></script>
 <script src="patches.js"></script>
+<script src="soundfxNatural.js"></script>
 <script src="soundfx.js"></script>
 <script src="audio.js"></script>
 <script src="soundpanel.js"></script>

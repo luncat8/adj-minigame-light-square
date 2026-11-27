@@ -6,7 +6,7 @@ const SP_MODES = ['move', 'loop', 'bed', 'off'];
 const SP_SCALES = ['majorPent', 'minorPent', 'lydian', 'wholeTone', 'hirajoshi'];
 const SP_ROOTS = ['C', 'D', 'Eb', 'F', 'G', 'A', 'Bb'];
 const SP_PITCHES = ['position', 'contour'];
-const SP_MOVES = ['drum', 'bearing'];
+const SP_MOVES = ['natural', 'drum', 'bearing'];
 
 let spPatchMod = null;
 let spAudioMod = null;
@@ -15,7 +15,7 @@ let spDocBound = false;
 const spCfg = {
 	on: true,
 	variant: 'glass',
-	moveSound: 'bearing',
+	moveSound: 'natural',
 	volume: 0.7,
 	speed: 4,
 	mode: 'move',
@@ -28,9 +28,9 @@ const spCfg = {
 	params: {}
 };
 
-// drum-like movement suits only Spectrum Drift; every other voice rolls on rusty bearings
+// drum-like movement suits only Spectrum Drift; every other voice uses textured natural foley
 function spAutoMove(variant) {
-	return variant === 'spectrum' ? 'drum' : 'bearing';
+	return variant === 'spectrum' ? 'drum' : 'natural';
 }
 
 function spPatches() {
@@ -69,7 +69,7 @@ function spSetAudioOn(next) {
 function spResetDefaults() {
 	spCfg.on = true;
 	spCfg.variant = 'glass';
-	spCfg.moveSound = 'bearing';
+	spCfg.moveSound = 'natural';
 	spCfg.volume = 0.7;
 	spCfg.speed = 4;
 	spCfg.mode = 'move';

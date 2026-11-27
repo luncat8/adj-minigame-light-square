@@ -293,6 +293,8 @@ const countWaves = () => connections.filter(([, dst]) => dst === waveBus).length
 const countSfx = () => connections.filter(([, dst]) => dst === sfxBus).length;
 const wavesBeforeMove = countWaves();
 const sfxBeforeMove = countSfx();
+$('snd-move').value = 'drum';
+$('snd-move').fire('change');
 const oscBeforeMove = activeAc.oscs.length;
 $('btn-cw-0').fire('click');
 const outerBodyHz = activeAc.oscs[oscBeforeMove].frequency.events[0][1];
@@ -487,17 +489,17 @@ store.set(panel.SP_STORAGE_KEY, '{corrupt json');
 panel.soundPanelInit();
 c.ok(panel.soundPanelSettings().variant === 'glass' && panel.soundPanelSettings().speed === 4 && panel.soundPanelSettings().scale === 'majorPent', 'corrupt localStorage falls back cleanly to defaults');
 
-// 12. Movement sound selector: auto-switch, manual override, persistence and bearing synthesis
-c.eq(panel.soundPanelSettings().moveSound, 'bearing', 'legacy storage without moveSound derives bearing for glass');
-c.eq($('snd-move').value, 'bearing', 'snd-move select syncs bearing for glass');
+// 12. Movement sound selector: auto-switch, manual override, persistence and natural synthesis
+c.eq(panel.soundPanelSettings().moveSound, 'natural', 'legacy storage without moveSound derives natural for glass');
+c.eq($('snd-move').value, 'natural', 'snd-move select syncs natural for glass');
 $('snd-variant').value = 'spectrum';
 $('snd-variant').fire('change');
 c.eq(panel.soundPanelSettings().moveSound, 'drum', 'spectrum auto-selects drum mechanism');
 c.eq($('snd-move').value, 'drum', 'spectrum syncs snd-move to drum');
 $('snd-variant').value = 'pulse';
 $('snd-variant').fire('change');
-c.eq(panel.soundPanelSettings().moveSound, 'bearing', 'non-spectrum auto-selects rusty bearings');
-c.eq($('snd-move').value, 'bearing', 'non-spectrum syncs snd-move to bearing');
+c.eq(panel.soundPanelSettings().moveSound, 'natural', 'non-spectrum auto-selects natural mechanism');
+c.eq($('snd-move').value, 'natural', 'non-spectrum syncs snd-move to natural');
 $('snd-move').value = 'drum';
 $('snd-move').fire('change');
 c.eq(panel.soundPanelSettings().moveSound, 'drum', 'manual snd-move choice stores drum');
@@ -506,8 +508,8 @@ c.eq(panel.soundPanelSettings().moveSound, 'drum', 'manual choice persists acros
 c.eq($('snd-move').value, 'drum', 'manual choice syncs select after reinit');
 $('snd-variant').value = 'glass';
 $('snd-variant').fire('change');
-c.eq(panel.soundPanelSettings().moveSound, 'bearing', 'next voice change re-autos manual override');
-c.eq(JSON.parse(store.get(panel.SP_STORAGE_KEY)).moveSound, 'bearing', 'moveSound persists under single localStorage key');
+c.eq(panel.soundPanelSettings().moveSound, 'natural', 'next voice change re-autos manual override');
+c.eq(JSON.parse(store.get(panel.SP_STORAGE_KEY)).moveSound, 'natural', 'moveSound persists under single localStorage key');
 
 store.set(panel.SP_STORAGE_KEY, JSON.stringify({ variant: 'spectrum', volume: 0.7, speed: 4, mode: 'move', scale: 'majorPent', root: 'C', pitchSource: 'position', width: 0.85, reverb: 0.45, bedLevel: 0.5, params: {} }));
 panel.soundPanelInit();
@@ -515,11 +517,11 @@ c.eq(panel.soundPanelSettings().moveSound, 'drum', 'legacy spectrum storage deri
 c.eq($('snd-move').value, 'drum', 'legacy spectrum syncs drum select');
 $('snd-variant').value = 'glass';
 $('snd-variant').fire('change');
-c.eq(panel.soundPanelSettings().moveSound, 'bearing', 'restore glass re-autos bearing');
+c.eq(panel.soundPanelSettings().moveSound, 'natural', 'restore glass re-autos natural');
 
 store.set(panel.SP_STORAGE_KEY, JSON.stringify({ variant: 'glass', moveSound: 'bogus', volume: 0.7, speed: 4, mode: 'move', scale: 'majorPent', root: 'C', pitchSource: 'position', width: 0.85, reverb: 0.45, bedLevel: 0.5, params: {} }));
 panel.soundPanelInit();
-c.eq(panel.soundPanelSettings().moveSound, 'bearing', 'invalid moveSound falls back to auto value');
+c.eq(panel.soundPanelSettings().moveSound, 'natural', 'invalid moveSound falls back to auto value');
 
 // drum stays short with a single detent; bearing rolls prolonged with per-slot tonal accents
 // direct fx calls isolate SFX oscs from the bed/wave oscs a button move also schedules
@@ -578,6 +580,48 @@ $('snd-variant').value = 'glass';
 $('snd-variant').fire('change');
 osc0 = activeAc.oscs.length;
 $('btn-cw-0').fire('click');
-c.ok(activeAc.oscs[osc0].stoppedAt - activeAc.oscs[osc0].startedAt > 0.5, 'glass auto-bearing rolls prolonged on next move');
+c.eq(panel.soundPanelSettings().moveSound, 'natural', 'glass selects natural foley for the next move');
+
+// Natural foley: irregular noise contacts, fixed material modes, bounded tails and positional rail.
+const sourceNodes = start => connections.slice(start).filter(([src]) => src.kind === 'bufsrc').map(([src]) => src);
+let naturalVoice = null;
+const captureNatural = (gain, endAt, node) => { naturalVoice = { gain, endAt, node }; };
+advance(500);
+osc0 = activeAc.oscs.length;
+let conn0 = connections.length;
+let filter0 = activeAc.filters.length;
+sfx.fxRotate(activeAc, sfxBus, 0, 1, 0, 0.85, 'natural', captureNatural);
+const naturalSources = sourceNodes(conn0);
+const naturalFilters = activeAc.filters.slice(filter0);
+c.eq(activeAc.oscs.length, osc0, 'natural rotation creates no pitched oscillators or periodic LFOs');
+c.eq(naturalSources.length, 26, 'natural outer quarter has brush layers, six slot knocks and a landing');
+c.ok(naturalFilters.every(f => f.frequency.events.length === 1), 'natural material resonances stay fixed without electronic sweeps');
+c.ok(naturalSources.every(src => src.stoppedAt > src.startedAt && src.stoppedAt <= naturalVoice.endAt), 'all natural sources stop within the registered voice lifetime');
+c.ok(naturalVoice.endAt - activeAc.currentTime > 0.4 && naturalVoice.endAt - activeAc.currentTime < 0.6, 'outer natural movement has a tactile bounded tail');
+const outerNaturalHz = naturalFilters[0].frequency.value;
+advance(500);
+filter0 = activeAc.filters.length;
+conn0 = connections.length;
+sfx.fxRotate(activeAc, sfxBus, 3, -1, 0, 0.85, 'natural', captureNatural);
+c.eq(sourceNodes(conn0).length, 11, 'center uses one slot knock rather than an outer-ring sequence');
+c.ok(activeAc.filters[filter0].frequency.value > outerNaturalHz, 'smaller rings have lighter material resonances');
+advance(500);
+conn0 = connections.length;
+sfx.fxLaser(activeAc, sfxBus, 1, 13, 0.85, 'natural', captureNatural);
+c.eq(sourceNodes(conn0).length, 44, 'natural rail covers all twelve traversed columns plus landing');
+c.ok(lastSfxPan() > 0.8, 'natural rail follows emitter stereo position');
+conn0 = connections.length;
+sfx.fxLaser(activeAc, sfxBus, 13, 13, 0, 'natural', captureNatural);
+c.eq(sourceNodes(conn0).length, 4, 'rail end stop is a short contact without a scrape');
+c.eq(lastSfxPan(), 0, 'zero width keeps natural rail centered');
+c.ok(naturalVoice.endAt - activeAc.currentTime < 0.2, 'natural rail end stop remains short');
+$('snd-move').value = 'bearing';
+$('snd-move').fire('change');
+panel.soundPanelInit();
+c.eq(panel.soundPanelSettings().moveSound, 'bearing', 's2 keeps its stored bearing identity across reload');
+$('snd-move').value = 'natural';
+$('snd-move').fire('change');
+panel.soundPanelInit();
+c.eq(panel.soundPanelSettings().moveSound, 'natural', 'natural choice persists across reload');
 
 c.report('sound_smoke');

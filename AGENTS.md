@@ -66,9 +66,10 @@ getObj().data().action()
 	patchesFlow.js — owns continuous branch-following and granular synth variants (Prism Pad, Comet, Crystal Grains). edit for portamento, HRTF Doppler and grain clouds.
 	patchesSpectrum.js — owns the Spectrum Drift noise-band variant: R/G/B bands as subtractive color, direction-driven per-band pan. edit for band crossovers, aim modes, drift and tilt rules.
 	patches.js — owns synth variant table, param schemas (ranges and choice selects), struck/groove variants (Glass Harp, Pulse), harmonic bed, emitter breath and win flourish. edit for variant registry and struck/bed timbres.
-	soundfx.js — owns physical board mechanism synthesis for concentric square rotations and emitter x-rail movement (drum mechanism for Spectrum Drift, prolonged rusty-bearing roll with per-slot tonal accents for other voices). edit for drum/bearing timbres, ring mass scaling and rail slide acoustics.
+	soundfx.js — owns movement sound dispatch, drum mechanism and s2 (bearing) synthesis. edit for drum/bearing timbres, ring mass scaling and rail slide acoustics.
+	soundfxNatural.js — owns noise-excited natural movement foley, irregular brush layers and muted material contacts. edit for natural ring/rail timbre and settling.
 	audio.js — owns AudioContext lifecycle, master/sfx buses, reverb IR, lookahead scheduler, waves, bed crossfade and soundView/sfx sinks. edit for timing, mixing, ghost preview and polyphony cap.
-	soundpanel.js — owns Sound panel DOM controls, Sound on checkbox + click-anywhere gesture unlock, movement sound selector with voice auto-switch (spectrum -> drum, else bearing), dynamic variant parameter block and localStorage persistence. edit for controls, defaults and storage schema.
+	soundpanel.js — owns Sound panel DOM controls, Sound on checkbox + click-anywhere gesture unlock, movement sound selector with voice auto-switch (spectrum -> drum, else natural), dynamic variant parameter block and localStorage persistence. edit for controls, defaults and storage schema.
 	game.js — owns live puzzle/progress state, normalized generation settings, preview switching and active readouts. edit for game flow, settings normalization and wording.
 	input.js — owns pointer, wheel, drag gestures, ring keys, bindings, setting labels and regenerate-on-change triggers. edit for bindings, labels, drag tuning and hit rules.
 	app.js — composer: root, $ and boot wiring only. implements nothing.

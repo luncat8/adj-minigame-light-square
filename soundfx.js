@@ -1,5 +1,5 @@
 // owns: physical board mechanism synthesis for square rotations and emitter rail movement
-// edit for: drum mechanism vs rusty-bearing timbres, ring mass scaling and laser x-slide acoustics
+// edit for: natural foley, drum mechanism and s2 timbres, ring mass scaling and laser x-slide acoustics
 
 const FX_RING_HZ = [54, 67, 83, 102];
 const FX_RING_RUMBLE = [135, 165, 205, 250];
@@ -57,8 +57,15 @@ function fxPanner(ac, dest, pan0, pan1, when, dur) {
 	return p;
 }
 
-// inharmonic 1.87x rigid-frame mode avoids musical-octave pitchiness while keeping heavy metal/stone body
+function fxNaturalDispatch(ac, bus, ring, dir, mode, width, fromCol, toCol, registerVoice) {
+	const play = typeof module !== 'undefined' && module.exports
+		? require('./soundfxNatural.js').fxNaturalMove : fxNaturalMove;
+	return play(ac, bus, ring, dir, mode, width, fromCol, toCol, registerVoice);
+}
+
+// Inharmonic frame mode avoids musical-octave pitchiness while keeping a heavy body.
 function fxRotate(ac, bus, ring, dir, mode, width, moveSound, registerVoice) {
+	if (moveSound === 'natural') return fxNaturalDispatch(ac, bus, ring, dir, mode, width, 0, 0, registerVoice);
 	if (moveSound === 'bearing') return fxRotateBearing(ac, bus, ring, dir, mode, width, registerVoice);
 	const r = ring >= 0 && ring <= 3 ? ring : 0;
 	const sgn = dir < 0 ? -1 : 1;
@@ -164,6 +171,7 @@ function fxRotate(ac, bus, ring, dir, mode, width, moveSound, registerVoice) {
 
 // emitter columns 1..13 map directly to stereo pan and linear rail resonance so x-travel is audible
 function fxLaser(ac, bus, fromCol, toCol, width, moveSound, registerVoice) {
+	if (moveSound === 'natural') return fxNaturalDispatch(ac, bus, -1, 1, 0, width, fromCol, toCol, registerVoice);
 	if (moveSound === 'bearing' && fromCol !== toCol) return fxLaserBearing(ac, bus, fromCol, toCol, width, registerVoice);
 	const when = ac.currentTime + 0.003;
 	const w = Number.isFinite(width) ? Math.max(0, Math.min(1, width)) : 0.85;

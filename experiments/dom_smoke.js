@@ -517,12 +517,13 @@ const vmCtx = vm.createContext({
 for (const script of scripts) {
 	vm.runInContext(fs.readFileSync(path.join(rootDir, script), 'utf8'), vmCtx, { filename: script });
 }
-c.eq(vmEls['canv'].width, 600, 'all 21 classic scripts boot cleanly in one shared lexical scope');
+c.eq(vmEls['canv'].width, 600, 'all 22 classic scripts boot cleanly in one shared lexical scope');
 c.eq(vm.runInContext('soundContext()', vmCtx), null, 'classic boot creates no AudioContext before user gesture');
 c.ok(/<input[^>]*type="checkbox"[^>]*id="snd-on"[^>]*checked/.test(html), 'Sound on checkbox starts checked in HTML');
-c.ok(/id="snd-move"/.test(html) && /value="bearing" selected/.test(html), 'movement sound selector defaults to rusty bearings in HTML');
-c.eq(vmEls['snd-move'].value, 'bearing', 'classic boot syncs movement sound to rusty bearings for Glass Harp');
-c.eq(vm.runInContext('soundPanelSettings().moveSound', vmCtx), 'bearing', 'classic boot movement sound is bearing');
+c.ok(/id="snd-move"/.test(html) && /value="natural" selected/.test(html), 'movement sound selector defaults to natural mechanism in HTML');
+c.ok(/value="bearing">s2<\/option>/.test(html), 'bearing sound is labeled s2');
+c.eq(vmEls['snd-move'].value, 'natural', 'classic boot syncs movement sound to natural mechanism for Glass Harp');
+c.eq(vm.runInContext('soundPanelSettings().moveSound', vmCtx), 'natural', 'classic boot movement sound is natural');
 
 c.ok(/id="mirror-count"[^>]*min="1"[^>]*max="49"[^>]*step="1"[^>]*value="11"/.test(html), 'count control HTML bounds and default');
 c.ok(/id="difficulty"[^>]*min="0"[^>]*max="100"[^>]*step="1"[^>]*value="25"/.test(html), 'dial HTML bounds and default');
