@@ -85,14 +85,34 @@ const rimText = t => ['待机', '调光', '过载', '成功'].includes(t);
 const glyphSet = new Set(board.CELL_GLYPHS);
 const isGlassGlow = s => typeof s === 'string' && s.startsWith('rgba(255,40,24');
 const glassShade = s => typeof s === 'string' && s.startsWith('rgba(155,188,255,');
-const protoShade = s => typeof s === 'string' && s.startsWith('rgba(105,170,250,');
+const sideTints = ['rgba(188,96,86,0.13)', 'rgba(92,168,104,0.12)', 'rgba(96,118,204,0.15)', 'rgba(196,158,84,0.12)'];
+const centerTint = 'rgba(132,158,214,0.08)';
+const protoTints = ['rgba(188,92,82,0.16)', 'rgba(88,164,100,0.15)', 'rgba(92,114,206,0.18)', 'rgba(196,152,78,0.15)', 'rgba(110,150,220,0.09)'];
+// drawGlass fills GLASS_BASE once, then the 49 rotatable cells in row-major order
+const cellFills = () => {
+	const base = fillStyles.indexOf('rgba(150,180,255,0.03)');
+	return fillStyles.slice(base + 1, base + 50);
+};
 
 c.eq(skins.skinName(), 'glass', 'default skin is glass');
 c.eq(skins.rayIndex(), 2, 'default ray is short dashes');
 c.eq($('ray').value, 'short', 'ray select synced to the default');
 c.ok(strokeCount > 0, 'glass skin paints on boot');
 c.ok(!strokeStyles.some(isGlassGlow), 'glass short mode omits laser glow in cells, drawing only dashes');
-c.ok(new Set(fillStyles.filter(glassShade)).size >= 8, 'glass rotated-square cells paint varied random brightness');
+c.eq(new Set(fillStyles.filter(s => sideTints.includes(s))).size, 4, 'glass quarter cells paint the four side tints');
+c.eq(fillStyles.filter(s => sideTints.includes(s)).length, 48, 'four side tints cover the 48 rotatable strip cells');
+c.eq(fillStyles.filter(s => s === centerTint).length, 1, 'center cell paints its own neutral tint');
+const beforeTints = cellFills();
+$('btn-cw-0').fire('click');
+pump(1, 150);
+const afterTints = cellFills();
+const ring0 = Array.from(board.RING_CELLS[0]);
+let rotated = true;
+for (let s = 0; s < ring0.length; s++) if (afterTints[ring0[(s + 6) % ring0.length]] !== beforeTints[ring0[s]]) rotated = false;
+c.ok(rotated, 'one outer quarter turn carries each side tint onto the next side');
+let held = true;
+for (let gi = 0; gi < 49; gi++) if (!ring0.includes(gi) && afterTints[gi] !== beforeTints[gi]) held = false;
+c.ok(held, 'cells off the moved ring keep their tint');
 c.ok(drawnTexts.some(rimText), 'glass skin paints rim items');
 c.eq(drawnTexts.filter(t => glyphSet.has(t)).length, 49 * 3, 'glass skin paints 3-pass relief glyphs on all 49 cells');
 c.eq(skins.renderPointToCell(px(7), px(7)).row, 7, 'glass hit-test maps a board cell');
@@ -106,7 +126,8 @@ pump(2, 100);
 c.ok(strokeCount > 0, 'prototype skin paints after switch');
 c.ok(litFills.some(f => f[0] === 'lighter' && f[1] <= 0.24), 'prototype skin paints whole-cell glow under the beam');
 c.ok(fillStyles.includes('rgba(72,128,208,0.055)'), 'prototype outer cells use dimmer fill');
-c.ok(new Set(fillStyles.filter(protoShade)).size >= 8, 'prototype rotated-square cells use lighter varied brightness');
+c.eq(new Set(fillStyles.filter(s => protoTints.includes(s))).size, 5, 'prototype quarter cells paint four side tints and the center tint');
+c.eq(fillStyles.filter(s => protoTints.includes(s)).length, 49, 'prototype tints cover all 49 rotatable cells');
 c.ok(drawnTexts.some(rimText), 'prototype skin adopts the rim items');
 c.eq(drawnTexts.filter(t => glyphSet.has(t)).length, 49 * 3, 'prototype skin paints 3-pass relief glyphs on all 49 cells');
 c.eq(skins.renderPointToCell(px(7), px(7)).row, 7, 'prototype hit-test maps a board cell');
@@ -152,6 +173,15 @@ dashSets.length = 0;
 pump(1, 280);
 c.ok(!strokeStyles.some(isGlassGlow), 'glass short mode omits laser glow');
 c.eq(dashSets.filter(d => d && d.length === 2).length, 3, 'glass short mode dashes only the 3 thin channel cores');
+
+// single-slots mode returns the per-cell random brightness on both skins' glass
+$('rule-mode').value = '1';
+$('rule-mode').fire('change');
+pump(1, 600);
+c.ok(new Set(fillStyles.filter(glassShade)).size >= 8, 'single-slots mode restores varied per-cell brightness');
+$('rule-mode').value = '0';
+$('rule-mode').fire('change');
+pump(1, 700);
 
 c.eq(skins.skinSelect('nope'), undefined, 'unknown skin name is ignored');
 c.eq(skins.skinName(), 'glass', 'unknown skin keeps the active skin');
