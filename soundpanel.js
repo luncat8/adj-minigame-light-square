@@ -6,6 +6,7 @@ const SP_MODES = ['move', 'loop', 'bed', 'off'];
 const SP_SCALES = ['majorPent', 'minorPent', 'lydian', 'wholeTone', 'hirajoshi'];
 const SP_ROOTS = ['C', 'D', 'Eb', 'F', 'G', 'A', 'Bb'];
 const SP_PITCHES = ['position', 'contour'];
+const SP_MOVES = ['drum', 'bearing'];
 
 let spPatchMod = null;
 let spAudioMod = null;
@@ -14,6 +15,7 @@ let spDocBound = false;
 const spCfg = {
 	on: true,
 	variant: 'glass',
+	moveSound: 'bearing',
 	volume: 0.7,
 	speed: 4,
 	mode: 'move',
@@ -25,6 +27,11 @@ const spCfg = {
 	bedLevel: 0.5,
 	params: {}
 };
+
+// drum-like movement suits only Spectrum Drift; every other voice rolls on rusty bearings
+function spAutoMove(variant) {
+	return variant === 'spectrum' ? 'drum' : 'bearing';
+}
 
 function spPatches() {
 	if (!spPatchMod && typeof module !== 'undefined' && module.exports) spPatchMod = require('./patches.js');
@@ -62,6 +69,7 @@ function spSetAudioOn(next) {
 function spResetDefaults() {
 	spCfg.on = true;
 	spCfg.variant = 'glass';
+	spCfg.moveSound = 'bearing';
 	spCfg.volume = 0.7;
 	spCfg.speed = 4;
 	spCfg.mode = 'move';
@@ -105,6 +113,9 @@ function spLoadStorage() {
 	const ids = list.map(p => p.id);
 	spCfg.on = typeof data.on === 'boolean' ? data.on : true;
 	spCfg.variant = spChoice(data.variant, ids, 'glass');
+	spCfg.moveSound = data.moveSound === undefined
+		? spAutoMove(spCfg.variant)
+		: spChoice(data.moveSound, SP_MOVES, spAutoMove(spCfg.variant));
 	spCfg.volume = spClamp(data.volume, 0, 1, 0.7);
 	spCfg.speed = spClamp(data.speed, 1, 16, 4);
 	spCfg.mode = spChoice(data.mode, SP_MODES, 'move');
@@ -147,6 +158,7 @@ function spSyncLabels() {
 function spSyncControls() {
 	const setVal = (id, v) => { const el = spEl(id); if (el) el.value = String(v); };
 	setVal('snd-variant', spCfg.variant);
+	setVal('snd-move', spCfg.moveSound);
 	setVal('snd-volume', Math.round(spCfg.volume * 100));
 	setVal('snd-speed', spCfg.speed);
 	setVal('snd-mode', spCfg.mode);
@@ -313,8 +325,12 @@ function soundPanelInit() {
 	bindSelect('snd-variant', v => {
 		const ids = spPatches().map(p => p.id);
 		spCfg.variant = spChoice(v, ids, spCfg.variant);
+		spCfg.moveSound = spAutoMove(spCfg.variant);
+		const mv = spEl('snd-move');
+		if (mv) mv.value = spCfg.moveSound;
 		spRebuildParams();
 	});
+	bindSelect('snd-move', v => { spCfg.moveSound = spChoice(v, SP_MOVES, spCfg.moveSound); });
 	bindRange('snd-volume', v => { spCfg.volume = spClamp(Number(v) / 100, 0, 1, spCfg.volume); });
 	bindRange('snd-speed', v => { spCfg.speed = spClamp(v, 1, 16, spCfg.speed); });
 	bindSelect('snd-mode', v => { spCfg.mode = spChoice(v, SP_MODES, spCfg.mode); });
@@ -328,6 +344,7 @@ function soundPanelInit() {
 
 if (typeof module !== 'undefined') module.exports = {
 	SP_STORAGE_KEY,
+	SP_MOVES,
 	soundPanelInit,
 	soundPanelSettings,
 	soundPanelToggle,

@@ -7,6 +7,7 @@ const goal = require('../contract.js');
 const patches = require('../patches.js');
 const audio = require('../audio.js');
 const panel = require('../soundpanel.js');
+const sfx = require('../soundfx.js');
 
 // Deterministic virtual clock driving both JS timers and AudioContext.currentTime
 let nowMs = 0;
@@ -485,5 +486,98 @@ c.ok(saved.scale === 'hirajoshi' && saved.speed === 9.5 && saved.params.glass.de
 store.set(panel.SP_STORAGE_KEY, '{corrupt json');
 panel.soundPanelInit();
 c.ok(panel.soundPanelSettings().variant === 'glass' && panel.soundPanelSettings().speed === 4 && panel.soundPanelSettings().scale === 'majorPent', 'corrupt localStorage falls back cleanly to defaults');
+
+// 12. Movement sound selector: auto-switch, manual override, persistence and bearing synthesis
+c.eq(panel.soundPanelSettings().moveSound, 'bearing', 'legacy storage without moveSound derives bearing for glass');
+c.eq($('snd-move').value, 'bearing', 'snd-move select syncs bearing for glass');
+$('snd-variant').value = 'spectrum';
+$('snd-variant').fire('change');
+c.eq(panel.soundPanelSettings().moveSound, 'drum', 'spectrum auto-selects drum mechanism');
+c.eq($('snd-move').value, 'drum', 'spectrum syncs snd-move to drum');
+$('snd-variant').value = 'pulse';
+$('snd-variant').fire('change');
+c.eq(panel.soundPanelSettings().moveSound, 'bearing', 'non-spectrum auto-selects rusty bearings');
+c.eq($('snd-move').value, 'bearing', 'non-spectrum syncs snd-move to bearing');
+$('snd-move').value = 'drum';
+$('snd-move').fire('change');
+c.eq(panel.soundPanelSettings().moveSound, 'drum', 'manual snd-move choice stores drum');
+panel.soundPanelInit();
+c.eq(panel.soundPanelSettings().moveSound, 'drum', 'manual choice persists across panel reinit');
+c.eq($('snd-move').value, 'drum', 'manual choice syncs select after reinit');
+$('snd-variant').value = 'glass';
+$('snd-variant').fire('change');
+c.eq(panel.soundPanelSettings().moveSound, 'bearing', 'next voice change re-autos manual override');
+c.eq(JSON.parse(store.get(panel.SP_STORAGE_KEY)).moveSound, 'bearing', 'moveSound persists under single localStorage key');
+
+store.set(panel.SP_STORAGE_KEY, JSON.stringify({ variant: 'spectrum', volume: 0.7, speed: 4, mode: 'move', scale: 'majorPent', root: 'C', pitchSource: 'position', width: 0.85, reverb: 0.45, bedLevel: 0.5, params: {} }));
+panel.soundPanelInit();
+c.eq(panel.soundPanelSettings().moveSound, 'drum', 'legacy spectrum storage derives drum');
+c.eq($('snd-move').value, 'drum', 'legacy spectrum syncs drum select');
+$('snd-variant').value = 'glass';
+$('snd-variant').fire('change');
+c.eq(panel.soundPanelSettings().moveSound, 'bearing', 'restore glass re-autos bearing');
+
+store.set(panel.SP_STORAGE_KEY, JSON.stringify({ variant: 'glass', moveSound: 'bogus', volume: 0.7, speed: 4, mode: 'move', scale: 'majorPent', root: 'C', pitchSource: 'position', width: 0.85, reverb: 0.45, bedLevel: 0.5, params: {} }));
+panel.soundPanelInit();
+c.eq(panel.soundPanelSettings().moveSound, 'bearing', 'invalid moveSound falls back to auto value');
+
+// drum stays short with a single detent; bearing rolls prolonged with per-slot tonal accents
+// direct fx calls isolate SFX oscs from the bed/wave oscs a button move also schedules
+const noopVoice = () => {};
+const fundsOf = oscs => oscs.filter(o => o.frequency.events[0][1] > 100 && o.frequency.events[0][1] < 500);
+let osc0 = activeAc.oscs.length;
+sfx.fxRotate(activeAc, sfxBus, 0, 1, 0, 0.85, 'drum', noopVoice);
+const drumOscs = activeAc.oscs.slice(osc0);
+c.ok(drumOscs[0].stoppedAt - drumOscs[0].startedAt < 0.25, 'drum outer quarter stays short');
+c.eq(drumOscs.length, 4, 'drum outer quarter schedules body, frame, pawl and lock');
+advance(300);
+osc0 = activeAc.oscs.length;
+sfx.fxRotate(activeAc, sfxBus, 0, 1, 0, 0.85, 'bearing', noopVoice);
+const bearOscs = activeAc.oscs.slice(osc0);
+c.ok(bearOscs[0].stoppedAt - bearOscs[0].startedAt > 0.5, 'bearing outer quarter rolls prolonged');
+c.ok(bearOscs.length > drumOscs.length + 4, 'bearing schedules per-slot tonal accents');
+const bearFunds = fundsOf(bearOscs);
+c.eq(bearFunds.length, 6, 'bearing outer quarter pings each of 6 slots');
+c.ok(bearFunds[0].frequency.events[0][1] < bearFunds[5].frequency.events[0][1], 'bearing CW accents ascend');
+advance(300);
+osc0 = activeAc.oscs.length;
+sfx.fxRotate(activeAc, sfxBus, 0, -1, 0, 0.85, 'bearing', noopVoice);
+const bearCcwFunds = fundsOf(activeAc.oscs.slice(osc0));
+c.ok(bearCcwFunds[0].frequency.events[0][1] > bearCcwFunds[5].frequency.events[0][1], 'bearing CCW accents descend');
+advance(300);
+osc0 = activeAc.oscs.length;
+sfx.fxRotate(activeAc, sfxBus, 2, 1, 0, 0.85, 'bearing', noopVoice);
+c.eq(fundsOf(activeAc.oscs.slice(osc0)).length, 2, 'bearing inner quarter pings each of 2 slots');
+advance(300);
+osc0 = activeAc.oscs.length;
+sfx.fxRotate(activeAc, sfxBus, 0, 1, 1, 0.85, 'bearing', noopVoice);
+c.eq(fundsOf(activeAc.oscs.slice(osc0)).length, 1, 'bearing single-slot pings the one slot changed');
+
+// laser: drum slides short, bearing rolls prolonged with per-column accents
+osc0 = activeAc.oscs.length;
+sfx.fxLaser(activeAc, sfxBus, 2, 8, 0.85, 'drum', noopVoice);
+const drumLaserOscs = activeAc.oscs.slice(osc0);
+c.ok(drumLaserOscs[0].stoppedAt - drumLaserOscs[0].startedAt < 0.2, 'drum laser slide stays short');
+advance(300);
+osc0 = activeAc.oscs.length;
+sfx.fxLaser(activeAc, sfxBus, 2, 8, 0.85, 'bearing', noopVoice);
+const bearLaserOscs = activeAc.oscs.slice(osc0);
+c.ok(bearLaserOscs[0].stoppedAt - bearLaserOscs[0].startedAt > 0.3, 'bearing laser roll stays prolonged');
+c.ok(bearLaserOscs.length > drumLaserOscs.length + 4, 'bearing laser pings each column stepped through');
+advance(300);
+
+// voice auto-switch drives the next move sound without touching snd-move
+$('snd-variant').value = 'spectrum';
+$('snd-variant').fire('change');
+advance(300);
+osc0 = activeAc.oscs.length;
+$('btn-cw-0').fire('click');
+c.ok(activeAc.oscs[osc0].stoppedAt - activeAc.oscs[osc0].startedAt < 0.25, 'spectrum auto-drum plays short on next move');
+advance(300);
+$('snd-variant').value = 'glass';
+$('snd-variant').fire('change');
+osc0 = activeAc.oscs.length;
+$('btn-cw-0').fire('click');
+c.ok(activeAc.oscs[osc0].stoppedAt - activeAc.oscs[osc0].startedAt > 0.5, 'glass auto-bearing rolls prolonged on next move');
 
 c.report('sound_smoke');

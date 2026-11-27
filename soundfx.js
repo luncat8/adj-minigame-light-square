@@ -1,11 +1,14 @@
 // owns: physical board mechanism synthesis for square rotations and emitter rail movement
-// edit for: low mechanism chassis/detent timbre, ring mass scaling and laser x-slide acoustics
+// edit for: drum mechanism vs rusty-bearing timbres, ring mass scaling and laser x-slide acoustics
 
 const FX_RING_HZ = [54, 67, 83, 102];
 const FX_RING_RUMBLE = [135, 165, 205, 250];
 const FX_RING_Q_DUR = [0.15, 0.13, 0.11, 0.075];
 const FX_RING_S_DUR = [0.085, 0.078, 0.07, 0.068];
 const FX_RING_PAN = [0.22, 0.15, 0.09, 0];
+const FX_BEAR_Q_DUR = [0.58, 0.52, 0.46, 0.36];
+const FX_BEAR_S_DUR = [0.38, 0.36, 0.34, 0.34];
+const FX_BEAR_SLOTS = [6, 4, 2, 1];
 
 let fxBufCtx = null;
 let fxBuf = null;
@@ -55,7 +58,8 @@ function fxPanner(ac, dest, pan0, pan1, when, dur) {
 }
 
 // inharmonic 1.87x rigid-frame mode avoids musical-octave pitchiness while keeping heavy metal/stone body
-function fxRotate(ac, bus, ring, dir, mode, width, registerVoice) {
+function fxRotate(ac, bus, ring, dir, mode, width, moveSound, registerVoice) {
+	if (moveSound === 'bearing') return fxRotateBearing(ac, bus, ring, dir, mode, width, registerVoice);
 	const r = ring >= 0 && ring <= 3 ? ring : 0;
 	const sgn = dir < 0 ? -1 : 1;
 	const quarter = mode === 0 && r < 3;
@@ -159,7 +163,8 @@ function fxRotate(ac, bus, ring, dir, mode, width, registerVoice) {
 }
 
 // emitter columns 1..13 map directly to stereo pan and linear rail resonance so x-travel is audible
-function fxLaser(ac, bus, fromCol, toCol, width, registerVoice) {
+function fxLaser(ac, bus, fromCol, toCol, width, moveSound, registerVoice) {
+	if (moveSound === 'bearing' && fromCol !== toCol) return fxLaserBearing(ac, bus, fromCol, toCol, width, registerVoice);
 	const when = ac.currentTime + 0.003;
 	const w = Number.isFinite(width) ? Math.max(0, Math.min(1, width)) : 0.85;
 	const pan0 = fxClampPan((fromCol - 7) / 6) * w;
@@ -246,6 +251,187 @@ function fxLaser(ac, bus, fromCol, toCol, width, registerVoice) {
 	detOsc.stop(tDet + 0.028);
 
 	registerVoice(out, when + dur + 0.035, sledOsc);
+}
+
+// ball-pass flutter on a gain param so prolonged rolls wobble like bearings, not flat noise
+function fxFlutter(ac, param, when, dur, depth, rate) {
+	const lfo = ac.createOscillator();
+	const g = ac.createGain();
+	lfo.type = 'sine';
+	lfo.frequency.setValueAtTime(rate, when);
+	g.gain.setValueAtTime(depth, when);
+	lfo.connect(g);
+	g.connect(param);
+	lfo.start(when);
+	lfo.stop(when + dur + 0.02);
+}
+
+function fxRollNoise(ac, dest, when, dur, freq0, freq1, q, peak, rate, depth) {
+	const src = ac.createBufferSource();
+	src.buffer = fxBuffer(ac);
+	src.loop = true;
+	const bp = ac.createBiquadFilter();
+	bp.type = 'bandpass';
+	bp.frequency.setValueAtTime(freq0, when);
+	bp.frequency.exponentialRampToValueAtTime(Math.max(40, freq1), when + dur);
+	bp.Q.setValueAtTime(q, when);
+	const g = ac.createGain();
+	g.gain.setValueAtTime(0.0001, when);
+	g.gain.linearRampToValueAtTime(peak, when + dur * 0.25);
+	g.gain.exponentialRampToValueAtTime(0.0001, when + dur + 0.02);
+	src.connect(bp);
+	bp.connect(g);
+	g.connect(dest);
+	src.start(when, fxNextOffset());
+	src.stop(when + dur + 0.025);
+	fxFlutter(ac, g.gain, when, dur, depth, rate);
+}
+
+// metallic slot ping: sine fundamental with a faint inharmonic partial; the landing ping drops an octave
+function fxAccent(ac, dest, hz, when, peak, last) {
+	const osc = ac.createOscillator();
+	const g = ac.createGain();
+	osc.type = 'sine';
+	osc.frequency.setValueAtTime(hz, when);
+	osc.frequency.exponentialRampToValueAtTime(Math.max(30, hz * (last ? 0.5 : 0.97)), when + (last ? 0.06 : 0.07));
+	g.gain.setValueAtTime(0.0001, when);
+	g.gain.linearRampToValueAtTime(peak, when + 0.004);
+	g.gain.exponentialRampToValueAtTime(0.0001, when + (last ? 0.16 : 0.12));
+	osc.connect(g);
+	g.connect(dest);
+	osc.start(when);
+	osc.stop(when + (last ? 0.165 : 0.125));
+	const ring = ac.createOscillator();
+	const ringG = ac.createGain();
+	ring.type = 'sine';
+	ring.frequency.setValueAtTime(hz * 2.76, when);
+	ringG.gain.setValueAtTime(0.0001, when);
+	ringG.gain.linearRampToValueAtTime(peak * 0.3, when + 0.003);
+	ringG.gain.exponentialRampToValueAtTime(0.0001, when + 0.06);
+	ring.connect(ringG);
+	ringG.connect(dest);
+	ring.start(when);
+	ring.stop(when + 0.065);
+}
+
+function fxGrain(ac, dest, when, peak) {
+	const src = ac.createBufferSource();
+	src.buffer = fxBuffer(ac);
+	const bp = ac.createBiquadFilter();
+	bp.type = 'bandpass';
+	bp.frequency.setValueAtTime(1800, when);
+	bp.Q.setValueAtTime(4, when);
+	const g = ac.createGain();
+	g.gain.setValueAtTime(0.0001, when);
+	g.gain.linearRampToValueAtTime(peak, when + 0.002);
+	g.gain.exponentialRampToValueAtTime(0.0001, when + 0.018);
+	src.connect(bp);
+	bp.connect(g);
+	g.connect(dest);
+	src.start(when, fxNextOffset());
+	src.stop(when + 0.02);
+}
+
+function fxRotateBearing(ac, bus, ring, dir, mode, width, registerVoice) {
+	const r = ring >= 0 && ring <= 3 ? ring : 0;
+	const sgn = dir < 0 ? -1 : 1;
+	const quarter = mode === 0 && r < 3;
+	const when = ac.currentTime + 0.003;
+	const dt = fxLastRotAt >= 0 ? when - fxLastRotAt : 1;
+	fxLastRotAt = when;
+	const vel = dt < 0.04 ? 0.62 : (dt < 0.085 ? 0.8 : 1);
+	const baseDur = quarter ? FX_BEAR_Q_DUR[r] : FX_BEAR_S_DUR[r];
+	const dur = baseDur * (vel < 0.75 ? 0.75 : 1);
+	const baseHz = FX_RING_HZ[r];
+	const rumbleHz = FX_RING_RUMBLE[r];
+	const w = Number.isFinite(width) ? Math.max(0, Math.min(1, width)) : 0.85;
+	const panSpan = FX_RING_PAN[r] * sgn * w;
+
+	const out = ac.createGain();
+	out.gain.setValueAtTime(1, when);
+	out.connect(fxPanner(ac, bus, -panSpan, panSpan, when, dur));
+
+	const bodyLp = ac.createBiquadFilter();
+	bodyLp.type = 'lowpass';
+	bodyLp.frequency.setValueAtTime(300 + r * 30, when);
+	bodyLp.connect(out);
+
+	const rumbleOsc = ac.createOscillator();
+	const rumbleG = ac.createGain();
+	rumbleOsc.type = 'triangle';
+	rumbleOsc.frequency.setValueAtTime(baseHz * (sgn > 0 ? 0.98 : 1.02), when);
+	rumbleOsc.frequency.exponentialRampToValueAtTime(Math.max(28, baseHz * 0.85), when + dur + 0.06);
+	rumbleG.gain.setValueAtTime(0.0001, when);
+	rumbleG.gain.linearRampToValueAtTime(0.2 * vel, when + dur * 0.22);
+	rumbleG.gain.exponentialRampToValueAtTime(0.0001, when + dur + 0.08);
+	rumbleOsc.connect(rumbleG);
+	rumbleG.connect(bodyLp);
+	rumbleOsc.start(when);
+	rumbleOsc.stop(when + dur + 0.085);
+
+	fxRollNoise(ac, out, when, dur, rumbleHz * 0.85, rumbleHz * 1.15, 1.8, 0.17 * vel, 6 + r * 0.7, 0.055 * vel);
+	fxRollNoise(ac, out, when, dur, 1100, 1150, 3, 0.035 * vel, 2.3, 0.015 * vel);
+	for (let i = 0; i < 3; i++) fxGrain(ac, out, when + dur * (0.22 + fxNextOffset() * 0.6), 0.05 * vel);
+
+	const nSlots = quarter ? FX_BEAR_SLOTS[r] : 1;
+	for (let i = 0; i < nSlots; i++) {
+		const t = nSlots === 1 ? when + dur * 0.62 : when + dur * (0.16 + 0.68 * i / (nSlots - 1));
+		const stepIdx = sgn > 0 ? i : (nSlots - 1 - i);
+		const hz = baseHz * 4 * Math.pow(2, stepIdx * 2 / 12);
+		const last = i === nSlots - 1;
+		fxAccent(ac, out, hz, t, (last ? 0.16 : 0.1) * vel, last);
+	}
+
+	registerVoice(out, when + dur + 0.17, rumbleOsc);
+}
+
+function fxLaserBearing(ac, bus, fromCol, toCol, width, registerVoice) {
+	const when = ac.currentTime + 0.003;
+	const w = Number.isFinite(width) ? Math.max(0, Math.min(1, width)) : 0.85;
+	const pan0 = fxClampPan((fromCol - 7) / 6) * w;
+	const pan1 = fxClampPan((toCol - 7) / 6) * w;
+	const dt = fxLastLaserAt >= 0 ? when - fxLastLaserAt : 1;
+	fxLastLaserAt = when;
+	const vel = dt < 0.035 ? 0.65 : (dt < 0.075 ? 0.82 : 1);
+	const steps = Math.min(6, Math.abs(toCol - fromCol));
+	const dur = (0.3 + 0.045 * steps) * (vel < 0.75 ? 0.8 : 1);
+	const u0 = Math.max(0, Math.min(1, (fromCol - 1) / 12));
+	const u1 = Math.max(0, Math.min(1, (toCol - 1) / 12));
+
+	const out = ac.createGain();
+	out.gain.setValueAtTime(1, when);
+	out.connect(fxPanner(ac, bus, pan0, pan1, when, dur));
+
+	const sledLp = ac.createBiquadFilter();
+	sledLp.type = 'lowpass';
+	sledLp.frequency.setValueAtTime(460, when);
+	sledLp.connect(out);
+
+	const sledOsc = ac.createOscillator();
+	const sledG = ac.createGain();
+	sledOsc.type = 'triangle';
+	sledOsc.frequency.setValueAtTime(128 + 64 * u0, when);
+	sledOsc.frequency.exponentialRampToValueAtTime(128 + 64 * u1, when + dur * 0.8);
+	sledOsc.frequency.exponentialRampToValueAtTime(112 + 56 * u1, when + dur + 0.03);
+	sledG.gain.setValueAtTime(0.0001, when);
+	sledG.gain.linearRampToValueAtTime(0.13 * vel, when + dur * 0.2);
+	sledG.gain.exponentialRampToValueAtTime(0.0001, when + dur + 0.04);
+	sledOsc.connect(sledG);
+	sledG.connect(sledLp);
+	sledOsc.start(when);
+	sledOsc.stop(when + dur + 0.045);
+
+	fxRollNoise(ac, out, when, dur, 340 + 320 * u0, 340 + 320 * u1, 2.2, 0.17 * vel, 8, 0.05 * vel);
+
+	const sgn = toCol > fromCol ? 1 : -1;
+	for (let i = 0; i < steps; i++) {
+		const col = fromCol + sgn * (i + 1);
+		const t = steps === 1 ? when + dur * 0.62 : when + dur * (0.18 + 0.64 * i / (steps - 1));
+		const last = i === steps - 1;
+		fxAccent(ac, out, 300 + 28 * (col - 1), t, (last ? 0.15 : 0.09) * vel, last);
+	}
+
+	registerVoice(out, when + dur + 0.17, sledOsc);
 }
 
 if (typeof module !== 'undefined') module.exports = { fxRotate, fxLaser };

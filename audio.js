@@ -10,7 +10,7 @@ const AU_STEAL_RAMP = 0.03;
 const AU_MAX_VOICES = 32;
 
 const auDefaultCfg = {
-	on: true, variant: 'glass', volume: 0.7, speed: 4, mode: 'move',
+	on: true, variant: 'glass', moveSound: 'bearing', volume: 0.7, speed: 4, mode: 'move',
 	scale: 'majorPent', root: 'C', pitchSource: 'position',
 	width: 0.85, reverb: 0.45, bedLevel: 0.5, params: {}
 };
@@ -432,14 +432,16 @@ function soundSetOn(nextOn) {
 
 function soundRotate(ring, dir, mode) {
 	if (!auAc || !auGraph || !auOn || auHidden()) return;
+	const cfg = auSettings();
 	const m = auMod('./soundfx.js');
-	(m ? m.fxRotate : fxRotate)(auAc, auGraph.sfxBus, ring, dir, mode, auSettings().width, auRegisterVoice);
+	(m ? m.fxRotate : fxRotate)(auAc, auGraph.sfxBus, ring, dir, mode, cfg.width, cfg.moveSound, auRegisterVoice);
 }
 
 function soundEmitter(fromCol, toCol) {
 	if (!auAc || !auGraph || !auOn || auHidden()) return;
+	const cfg = auSettings();
 	const m = auMod('./soundfx.js');
-	(m ? m.fxLaser : fxLaser)(auAc, auGraph.sfxBus, fromCol, toCol, auSettings().width, auRegisterVoice);
+	(m ? m.fxLaser : fxLaser)(auAc, auGraph.sfxBus, fromCol, toCol, cfg.width, cfg.moveSound, auRegisterVoice);
 }
 
 function soundReplay() {

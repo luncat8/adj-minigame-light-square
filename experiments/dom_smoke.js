@@ -520,6 +520,9 @@ for (const script of scripts) {
 c.eq(vmEls['canv'].width, 600, 'all 21 classic scripts boot cleanly in one shared lexical scope');
 c.eq(vm.runInContext('soundContext()', vmCtx), null, 'classic boot creates no AudioContext before user gesture');
 c.ok(/<input[^>]*type="checkbox"[^>]*id="snd-on"[^>]*checked/.test(html), 'Sound on checkbox starts checked in HTML');
+c.ok(/id="snd-move"/.test(html) && /value="bearing" selected/.test(html), 'movement sound selector defaults to rusty bearings in HTML');
+c.eq(vmEls['snd-move'].value, 'bearing', 'classic boot syncs movement sound to rusty bearings for Glass Harp');
+c.eq(vm.runInContext('soundPanelSettings().moveSound', vmCtx), 'bearing', 'classic boot movement sound is bearing');
 
 c.ok(/id="mirror-count"[^>]*min="1"[^>]*max="49"[^>]*step="1"[^>]*value="11"/.test(html), 'count control HTML bounds and default');
 c.ok(/id="difficulty"[^>]*min="0"[^>]*max="100"[^>]*step="1"[^>]*value="25"/.test(html), 'dial HTML bounds and default');
