@@ -59,7 +59,7 @@ const live = {
 	previewing: false,
 	witnessGlyphs: null,
 	// persistent view handed to the renderer and sound sink; only refs and scalars change
-	view: { tiles: null, glyphs: null, shadeOff: 0, emitter: 0, seg: null, recv: null, overlays: null, result: null, previewing: false, moved: false }
+	view: { tiles: null, glyphs: null, shadeOff: 0, sideTint: false, emitter: 0, seg: null, recv: null, overlays: null, result: null, previewing: false, moved: false }
 };
 
 function gameControlValue(raw, fallback, min, max) {
@@ -130,6 +130,7 @@ function publishView(moved) {
 	v.tiles = live.previewing ? live.gen.witness : live.puzzle.tiles;
 	v.glyphs = live.previewing ? live.witnessGlyphs : live.puzzle.glyphs;
 	v.shadeOff = live.gen.seed % 50;
+	v.sideTint = live.puzzle.mode === fMQ;
 	v.emitter = live.previewing ? live.gen.witnessEmitter : live.puzzle.emitter;
 	v.seg = segBuf();
 	v.recv = recvBuf();
