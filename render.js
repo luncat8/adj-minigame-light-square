@@ -12,6 +12,7 @@ const rTileDiag = rBoard ? rBoard.TILE_DIAG : TILE_DIAG;
 const rRingSide = rBoard ? rBoard.RING_SIDE : RING_SIDE;
 const rGlyphs = rBoard ? rBoard.CELL_GLYPHS : CELL_GLYPHS;
 const rCellShade = rBoard ? rBoard.CELL_SHADE : CELL_SHADE;
+const rCellSide = rBoard ? rBoard.CELL_SIDE : CELL_SIDE;
 const rShadeSteps = rBoard ? rBoard.SHADE_STEPS : SHADE_STEPS;
 const rAny = rGoal ? rGoal.CONTRACT_ANY : CONTRACT_ANY;
 const rPartial = rGoal ? rGoal.CONTRACT_PARTIAL : CONTRACT_PARTIAL;
@@ -47,6 +48,8 @@ const GLASS_BASE = 'rgba(150,180,255,0.03)';
 const GLASS_EDGE = 'rgba(150,180,255,0.2)';
 const rGlassShades = Array.from({ length: rShadeSteps }, (_, i) =>
 	'rgba(155,188,255,' + (0.085 + (i / (rShadeSteps - 1)) * 0.08).toFixed(3) + ')');
+// quarter mode fills side strips that travel with tile identity (0 red, 1 green, 2 blue, 3 amber); center stays neutral
+const rGlassTints = ['rgba(188,96,86,0.13)', 'rgba(92,168,104,0.12)', 'rgba(96,118,204,0.15)', 'rgba(196,158,84,0.12)', 'rgba(132,158,214,0.08)'];
 const SLOT_DIM = 'rgba(150,160,180,0.4)';
 const INK = 'rgba(236,240,248,0.9)';
 const INK_HALF = 'rgba(236,240,248,0.45)';
@@ -67,7 +70,7 @@ let rSel = -1;
 let rRay = 2;
 let rRaf = 0;
 let rResize = null;
-const rView = { tiles: null, glyphs: null, shadeOff: 0, emitter: 0, seg: null, recv: null, overlays: null, result: null, previewing: false };
+const rView = { tiles: null, glyphs: null, shadeOff: 0, sideTint: false, emitter: 0, seg: null, recv: null, overlays: null, result: null, previewing: false };
 const rPt = { row: 0, col: 0 };
 
 function glassInit(root) {
@@ -104,6 +107,7 @@ function glassView(v) {
 	rView.tiles = v.tiles;
 	rView.glyphs = v.glyphs || null;
 	rView.shadeOff = v.shadeOff || 0;
+	rView.sideTint = !!v.sideTint;
 	rView.emitter = v.emitter;
 	rView.seg = v.seg;
 	rView.recv = v.recv;
@@ -196,7 +200,7 @@ function drawGlass() {
 		for (let c = 0; c < rGlass; c++) {
 			const gi = r * rGlass + c;
 			const id = glyphs ? glyphs[gi] : gi;
-			rCtx.fillStyle = rGlassShades[rCellShade[(id + rView.shadeOff) % shadeLen]];
+			rCtx.fillStyle = rView.sideTint ? rGlassTints[rCellSide[id]] : rGlassShades[rCellShade[(id + rView.shadeOff) % shadeLen]];
 			rCtx.fillRect(rGlassOff + c + 0.02, rGlassOff + r + 0.02, 0.96, 0.96);
 		}
 	}
