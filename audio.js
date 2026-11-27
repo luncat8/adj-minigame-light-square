@@ -10,7 +10,7 @@ const AU_STEAL_RAMP = 0.03;
 const AU_MAX_VOICES = 32;
 
 const auDefaultCfg = {
-	on: true, variant: 'glass', moveSound: 'natural', volume: 0.7, speed: 4, mode: 'move',
+	on: true, variant: 'glass', moveSound: 'noise1', volume: 0.7, speed: 4, mode: 'move',
 	scale: 'majorPent', root: 'C', pitchSource: 'position',
 	width: 0.85, reverb: 0.45, bedLevel: 0.5, params: {}
 };
