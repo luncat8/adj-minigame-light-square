@@ -1,5 +1,5 @@
-// owns: Sound panel DOM controls, dynamic variant parameter block, mute toggle and localStorage persistence
-// edit for: Sound panel defaults, control bindings, labels and storage schema
+// owns: Sound panel DOM controls, dynamic variant parameter block, Sound on checkbox and localStorage persistence
+// edit for: Sound panel defaults, checkbox gesture unlock, control bindings, labels and storage schema
 
 const SP_STORAGE_KEY = 'lightSquareSound';
 const SP_MODES = ['move', 'loop', 'bed', 'off'];
@@ -9,8 +9,10 @@ const SP_PITCHES = ['position', 'contour'];
 
 let spPatchMod = null;
 let spAudioMod = null;
+let spDocBound = false;
 
 const spCfg = {
+	on: true,
 	variant: 'glass',
 	volume: 0.7,
 	speed: 4,
@@ -52,7 +54,13 @@ function spChoice(val, allowed, fallback) {
 	return allowed.includes(val) ? val : fallback;
 }
 
+function spSetAudioOn(next) {
+	const a = spAudio();
+	return a ? a.soundSetOn(next) : (typeof soundSetOn !== 'undefined' ? soundSetOn(next) : false);
+}
+
 function spResetDefaults() {
+	spCfg.on = true;
 	spCfg.variant = 'glass';
 	spCfg.volume = 0.7;
 	spCfg.speed = 4;
@@ -95,6 +103,7 @@ function spLoadStorage() {
 	if (!data || typeof data !== 'object' || Array.isArray(data)) return;
 	const list = spPatches();
 	const ids = list.map(p => p.id);
+	spCfg.on = typeof data.on === 'boolean' ? data.on : true;
 	spCfg.variant = spChoice(data.variant, ids, 'glass');
 	spCfg.volume = spClamp(data.volume, 0, 1, 0.7);
 	spCfg.speed = spClamp(data.speed, 1, 16, 4);
@@ -110,12 +119,12 @@ function spLoadStorage() {
 		const patch = list[i];
 		const saved = data.params[patch.id];
 		if (!saved || typeof saved !== 'object') continue;
-			for (let j = 0; j < patch.params.length; j++) {
-				const d = patch.params[j];
-				spCfg.params[patch.id][d.key] = d.choices
-					? spChoice(saved[d.key], d.choices, d.def)
-					: spClamp(saved[d.key], d.min, d.max, d.def);
-			}
+		for (let j = 0; j < patch.params.length; j++) {
+			const d = patch.params[j];
+			spCfg.params[patch.id][d.key] = d.choices
+				? spChoice(saved[d.key], d.choices, d.def)
+				: spClamp(saved[d.key], d.min, d.max, d.def);
+		}
 	}
 }
 
@@ -127,14 +136,8 @@ function spSaveStorage() {
 }
 
 function spSyncLabels() {
-	const onBtn = spEl('snd-on');
-	const a = spAudio();
-	const isOn = a ? a.soundIsOn() : (typeof soundIsOn !== 'undefined' ? soundIsOn() : false);
-	if (onBtn) {
-		onBtn.textContent = isOn ? 'Sound on · M' : 'Sound off · M';
-		if (onBtn.setAttribute) onBtn.setAttribute('aria-pressed', isOn ? 'true' : 'false');
-		onBtn.ariaPressed = isOn ? 'true' : 'false';
-	}
+	const onBox = spEl('snd-on');
+	if (onBox) onBox.checked = !!spCfg.on;
 	const volLbl = spEl('snd-volume-label');
 	if (volLbl) volLbl.textContent = 'Vol ' + Math.round(spCfg.volume * 100) + '%';
 	const spdLbl = spEl('snd-speed-label');
@@ -218,12 +221,21 @@ function spNotifyAudio() {
 	else if (typeof soundApplySettings !== 'undefined') soundApplySettings();
 }
 
+// Chromium blocks Web Audio until a user gesture; any click while Sound on is checked unlocks audio
+function soundPanelUnlock() {
+	const onBox = spEl('snd-on');
+	if (onBox ? !onBox.checked : !spCfg.on) return false;
+	spCfg.on = true;
+	return spSetAudioOn(true);
+}
+
 function soundPanelToggle() {
-	const a = spAudio();
-	const cur = a ? a.soundIsOn() : soundIsOn();
-	if (a) a.soundSetOn(!cur);
-	else soundSetOn(!cur);
-	spSyncLabels();
+	const onBox = spEl('snd-on');
+	const next = !(onBox ? onBox.checked : spCfg.on);
+	spCfg.on = next;
+	if (onBox) onBox.checked = next;
+	spSaveStorage();
+	spSetAudioOn(next);
 }
 
 function soundPanelSettings() {
@@ -234,17 +246,43 @@ function soundPanelInit() {
 	spLoadStorage();
 	spSyncControls();
 	spRebuildParams();
+	if (!spCfg.on) spSetAudioOn(false);
 
-	const onBtn = spEl('snd-on');
-	if (onBtn) onBtn.addEventListener('click', soundPanelToggle);
+	const onBox = spEl('snd-on');
+	if (onBox) {
+		onBox.addEventListener('change', () => {
+			spCfg.on = !!onBox.checked;
+			spSaveStorage();
+			spSetAudioOn(spCfg.on);
+		});
+	}
+
+	if (!spDocBound && typeof document !== 'undefined' && document.addEventListener) {
+		spDocBound = true;
+		// skip #snd-on-wrap so clicking the label to uncheck never unlocks before the checkbox flips
+		const onGesture = e => {
+			const t = e && e.target;
+			const wrap = spEl('snd-on-wrap');
+			const box = spEl('snd-on');
+			if (t && (t === box || t === wrap || (wrap && wrap.contains && wrap.contains(t)))) return;
+			soundPanelUnlock();
+		};
+		document.addEventListener('click', onGesture, true);
+		document.addEventListener('pointerdown', e => {
+			if (e && e.pointerType === 'touch') return;
+			onGesture(e);
+		}, true);
+	}
 
 	const replayBtn = spEl('snd-replay');
 	if (replayBtn) {
 		replayBtn.addEventListener('click', () => {
+			spCfg.on = true;
+			spSyncLabels();
+			spSaveStorage();
 			const a = spAudio();
 			if (a) a.soundReplay();
 			else soundReplay();
-			spSyncLabels();
 		});
 	}
 
@@ -292,5 +330,6 @@ if (typeof module !== 'undefined') module.exports = {
 	SP_STORAGE_KEY,
 	soundPanelInit,
 	soundPanelSettings,
-	soundPanelToggle
+	soundPanelToggle,
+	soundPanelUnlock
 };

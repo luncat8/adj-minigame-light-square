@@ -67,7 +67,7 @@ function psSpawn(ac, bus, wave, n, when) {
 		flt.connect(g);
 		const pan = psPanner(ac, out, 0, when);
 		g.connect(pan || out);
-		bands.push({ g, flt, dest: pan || out, pan, on: false, dir: n.dirOut, panCur: 0, fCur: base.f, gain: base.gain, f: base.f });
+		bands.push({ g, flt, dest: pan || out, pan, on: false, dir: (n.dirOut + n.turn) & 3, panCur: 0, fCur: base.f, gain: base.gain, f: base.f });
 	}
 	src.start(when);
 	const voice = { src, out, bands, alive: true };

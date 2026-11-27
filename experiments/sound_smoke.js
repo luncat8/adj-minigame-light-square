@@ -90,6 +90,8 @@ class StubAudioContext {
 		this.convolvers = [];
 		this.filters = [];
 		this.gains = [];
+		this.oscs = [];
+		this.panners = [];
 		activeAc = this;
 	}
 	suspend() { this.state = 'suspended'; this.suspendCount++; }
@@ -100,7 +102,7 @@ class StubAudioContext {
 		return g;
 	}
 	createOscillator() {
-		return makeNode('osc', {
+		const o = makeNode('osc', {
 			type: 'sine',
 			frequency: makeParam(440),
 			detune: makeParam(0),
@@ -110,6 +112,8 @@ class StubAudioContext {
 			start(t = 0) { this.startedAt = t; oscStarts.push(t); },
 			stop(t = 0) { this.stoppedAt = t; }
 		});
+		this.oscs.push(o);
+		return o;
 	}
 	createBuffer(ch, len, sr) {
 		const chans = Array.from({ length: ch }, () => new Float32Array(len));
@@ -132,7 +136,11 @@ class StubAudioContext {
 		this.filters.push(f);
 		return f;
 	}
-	createStereoPanner() { return makeNode('stereopan', { pan: makeParam(0) }); }
+	createStereoPanner() {
+		const p = makeNode('stereopan', { pan: makeParam(0) });
+		this.panners.push(p);
+		return p;
+	}
 	createPanner() {
 		return makeNode('panner', {
 			panningModel: 'equalpower', distanceModel: 'inverse', refDistance: 1, rolloffFactor: 1,
@@ -189,6 +197,7 @@ function makeEl(id, tag = 'DIV') {
 		setAttribute(k, v) { this.attrs[k] = String(v); },
 		getAttribute(k) { return this.attrs[k] || null; },
 		appendChild(ch) { this.children.push(ch); if (ch.id) els[ch.id] = ch; return ch; },
+		contains(node) { return this === node || this.children.includes(node); },
 		addEventListener(t, f) { (this.handlers[t] = this.handlers[t] || []).push(f); },
 		fire(t, ev = {}) {
 			if (!ev.preventDefault) ev.preventDefault = () => {};
@@ -209,7 +218,7 @@ global.document = {
 	getElementById(id) { return els[id] || (els[id] = makeEl(id)); },
 	createElement(tag) { return makeEl('', tag.toUpperCase()); },
 	addEventListener(t, f) { (docHandlers[t] = docHandlers[t] || []).push(f); },
-	fire(t) { for (const f of docHandlers[t] || []) f({}); }
+	fire(t, ev = {}) { for (const f of docHandlers[t] || []) f(ev); }
 };
 global.$ = id => global.document.getElementById(id);
 
@@ -228,37 +237,66 @@ global.performance = { now: () => nowMs };
 $('rule-mode').value = '0';
 $('difficulty').value = '25';
 $('mirror-count').value = '11';
+$('snd-on-wrap').appendChild($('snd-on'));
 
 const game = require('../game.js');
 require('../app.js');
 
-// 1. No AudioContext before user gesture, yet stored settings restored
+// 1. Sound on checkbox defaults to checked, yet no AudioContext exists before user gesture
 c.eq(contextsCreated, 0, 'no AudioContext exists before user gesture');
 c.eq(audio.soundContext(), null, 'soundContext is null before gesture');
-c.eq($('snd-on').getAttribute('aria-pressed'), 'false', 'snd-on starts unpressed');
+c.eq($('snd-on').checked, true, 'snd-on checkbox starts checked');
 c.eq(panel.soundPanelSettings().scale, 'lydian', 'stored scale restored at boot');
 c.eq(panel.soundPanelSettings().speed, 5, 'stored speed restored at boot');
 c.eq(panel.soundPanelSettings().params.glass.decay, 1.6, 'stored variant param restored at boot');
 
-// Moves before gesture still create no AudioContext
+// Clicking the Sound on label to uncheck before any audio gesture never creates an AudioContext
+global.document.fire('click', { target: $('snd-on-wrap') });
+$('snd-on').checked = false;
+$('snd-on').fire('change');
 $('btn-cw-0').fire('click');
+global.document.fire('click', { target: $('canv') });
 advance(500);
-c.eq(contextsCreated, 0, 'moves while sound is off never create AudioContext');
+c.eq(contextsCreated, 0, 'clicks and moves while unchecked never create AudioContext');
 
-// 2. First gesture on snd-on creates & unlocks AudioContext, generates JS reverb IR and schedules wave
+// 2. When checked, any click enables sound (Chromium gesture unlock), and on-check enables sound too
+$('snd-on').checked = true;
 oscStarts.length = 0;
-$('snd-on').fire('click');
-c.eq(contextsCreated, 1, 'first snd-on click creates one AudioContext');
-c.eq($('snd-on').getAttribute('aria-pressed'), 'true', 'snd-on sets aria-pressed=true');
+global.document.fire('click', { target: $('canv') });
+c.eq(contextsCreated, 1, 'any click while Sound on is checked creates and unlocks AudioContext');
+c.ok(audio.soundIsOn(), 'any click while checked enables sound');
 c.ok(!!activeAc.convolvers[0].buffer && activeAc.convolvers[0].buffer.numberOfChannels === 2, 'JS stereo impulse response generated');
 advance(4000);
 c.ok(oscStarts.length > 2, 'enabling sound schedules bed and initial wave');
 
-// 3. Pose change schedules nondecreasing start times after 120 ms debounce
+// Unchecking disables/suspends; checking again ("on check - enable sound") immediately resumes
+$('snd-on').checked = false;
+$('snd-on').fire('change');
+c.ok(!audio.soundIsOn() && activeAc.state === 'suspended', 'unchecking Sound on suspends immediately');
+global.document.fire('click', { target: $('canv') });
+c.ok(!audio.soundIsOn(), 'clicks while unchecked keep sound disabled');
+$('snd-on').checked = true;
+$('snd-on').fire('change');
+c.ok(audio.soundIsOn() && activeAc.state === 'running', 'checking Sound on enables and resumes immediately');
+
+// If Chromium still held AudioContext suspended, any click while checked resumes it
+activeAc.state = 'suspended';
+const resBefore = activeAc.resumeCount;
+global.document.fire('click', { target: $('canv') });
+c.ok(activeAc.state === 'running' && activeAc.resumeCount > resBefore, 'click while checked resumes a Chromium-suspended context');
+
+// 3. Pose change plays immediate low mechanism SFX on sfxBus and debounces photon wave by 120 ms
 const waveBus = activeAc.gains[0]; // auCreateContext creates waveBus first, bedBus second
+const sfxBus = activeAc.gains[7];
 const countWaves = () => connections.filter(([, dst]) => dst === waveBus).length;
+const countSfx = () => connections.filter(([, dst]) => dst === sfxBus).length;
 const wavesBeforeMove = countWaves();
+const sfxBeforeMove = countSfx();
+const oscBeforeMove = activeAc.oscs.length;
 $('btn-cw-0').fire('click');
+const outerBodyHz = activeAc.oscs[oscBeforeMove].frequency.events[0][1];
+c.eq(countSfx(), sfxBeforeMove + 1, 'square rotation immediately routes mechanism sound to sfxBus');
+c.ok(outerBodyHz > 40 && outerBodyHz < 70, 'outer 7x7 square uses deep low mechanism body frequency');
 advance(100);
 c.eq(countWaves(), wavesBeforeMove, 'no new wave before 120 ms pose debounce');
 oscStarts.length = 0;
@@ -268,6 +306,26 @@ c.ok(oscStarts.length > 0, 'pose wave schedules note sources');
 let nondec = true;
 for (let i = 1; i < oscStarts.length; i++) if (oscStarts[i] + 1e-9 < oscStarts[i - 1]) nondec = false;
 c.ok(nondec, 'scheduled note start times are nondecreasing');
+
+// Inner and center squares step up in chassis resonance; laser movement glides stereo pan by x position
+const oscBeforeInner = activeAc.oscs.length;
+$('btn-ccw-2').fire('click');
+const innerBodyHz = activeAc.oscs[oscBeforeInner].frequency.events[0][1];
+const oscBeforeCenter = activeAc.oscs.length;
+$('btn-cw-3').fire('click');
+const centerBodyHz = activeAc.oscs[oscBeforeCenter].frequency.events[0][1];
+c.ok(outerBodyHz < innerBodyHz && innerBodyHz < centerBodyHz && centerBodyHz < 120, 'ring mass scales low mechanism pitch outer < inner < center');
+advance(200);
+
+const sfxBeforeLaser = countSfx();
+const lastSfxPan = () => activeAc.panners.filter(p => p.conns[0] === sfxBus).pop().pan.value;
+game.gameSetEmitter(2);
+const panLeft = lastSfxPan();
+game.gameSetEmitter(12);
+const panRight = lastSfxPan();
+c.eq(countSfx(), sfxBeforeLaser + 2, 'laser x-position moves route to sfxBus');
+c.ok(panLeft < -0.4 && panRight > 0.4, 'laser movement stereo pan tracks x position left to right');
+advance(200);
 
 // 4. Drag burst (< 120 ms between moves) produces exactly ONE wave
 const wavesBeforeDrag = countWaves();
@@ -370,6 +428,22 @@ c.eq(panel.soundPanelSettings().params.spectrum.aim, 'relative', 'choice param c
 panel.soundPanelInit();
 c.eq(panel.soundPanelSettings().params.spectrum.aim, 'relative', 'choice param persists across panel reinit');
 
+// First-hit splitter on bottom glass row keeps passing bands centered while reflected band pans left
+$('snd-param-aim').value = 'absolute';
+$('snd-param-aim').fire('change');
+splitPose.fill(0);
+splitPose[6 * 7 + 3] = 1 | board.TILE_DIAG; // row 10 col 7: red '\' splitter as first glass hit
+live.puzzle.emitter = 7;
+game.gameRestart();
+splitPose.fill(0);
+splitPose[6 * 7 + 3] = 1 | board.TILE_DIAG;
+const pansBeforeSplit = activeAc.panners.length;
+game.gameSetEmitter(6);
+game.gameSetEmitter(7);
+advance(2500);
+const specPans = activeAc.panners.slice(pansBeforeSplit).filter(p => p.conns[0] && p.conns[0].conns[0] && p.conns[0].conns[0].conns[0] === waveBus);
+c.ok(specPans.length >= 3 && specPans[0].pan.value < -0.8 && Math.abs(specPans[1].pan.value) < 1e-6 && Math.abs(specPans[2].pan.value) < 1e-6, 'first-hit splitter pans reflected band left and keeps passing bands centered');
+
 // Polyphony cap: dense rapid replays never exceed 32 live voices and steal oldest with 30 ms ramp
 $('snd-variant').value = 'grains';
 $('snd-variant').fire('change');
@@ -385,11 +459,11 @@ const suspBefore = activeAc.suspendCount;
 let keyPrevented = false;
 winHandlers.keydown[0]({ key: 'm', preventDefault() { keyPrevented = true; } });
 c.ok(keyPrevented && !audio.soundIsOn() && activeAc.state === 'suspended' && activeAc.suspendCount > suspBefore, 'key M mutes and suspends immediately');
-c.eq($('snd-on').getAttribute('aria-pressed'), 'false', 'key M updates snd-on aria-pressed');
+c.eq($('snd-on').checked, false, 'key M unchecks snd-on');
 winHandlers.keydown[0]({ key: 'm', target: { tagName: 'INPUT' } });
 c.ok(!audio.soundIsOn(), 'key M ignored when focused in INPUT');
 winHandlers.keydown[0]({ key: 'M', preventDefault() {} });
-c.ok(audio.soundIsOn() && activeAc.state === 'running', 'key M unmutes and resumes');
+c.ok(audio.soundIsOn() && activeAc.state === 'running' && $('snd-on').checked, 'key M checks snd-on and resumes');
 
 global.document.hidden = true;
 global.document.visibilityState = 'hidden';

@@ -41,6 +41,16 @@ function soundSink(v) {
 	if (typeof soundView !== 'undefined') soundView(v);
 }
 
+function soundMoveRing(ring, dir, mode) {
+	if (gAudio) return gAudio.soundRotate(ring, dir, mode);
+	if (typeof soundRotate !== 'undefined') soundRotate(ring, dir, mode);
+}
+
+function soundMoveEmitter(fromCol, toCol) {
+	if (gAudio) return gAudio.soundEmitter(fromCol, toCol);
+	if (typeof soundEmitter !== 'undefined') soundEmitter(fromCol, toCol);
+}
+
 const live = {
 	puzzle: null,
 	gen: null,
@@ -153,6 +163,7 @@ function ruleText() {
 function gameMoveRing(ring, dir) {
 	if (live.previewing) return;
 	fShift(live.puzzle, ring, dir);
+	soundMoveRing(ring, dir, live.puzzle.mode);
 	refresh();
 }
 
@@ -162,15 +173,20 @@ function gameStride(ring) {
 
 function gameEmitterStep(dir) {
 	if (live.previewing) return;
+	const before = live.puzzle.emitter;
 	fStep(live.puzzle, dir);
-	refresh();
+	soundMoveEmitter(before, live.puzzle.emitter);
+	if (live.puzzle.emitter !== before) refresh();
 }
 
 function gameSetEmitter(col) {
 	if (live.previewing) return;
 	const before = live.puzzle.emitter;
 	fSetE(live.puzzle, col);
-	if (live.puzzle.emitter !== before) refresh();
+	if (live.puzzle.emitter !== before) {
+		soundMoveEmitter(before, live.puzzle.emitter);
+		refresh();
+	}
 }
 
 function gameRestart() {

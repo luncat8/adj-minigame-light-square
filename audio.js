@@ -1,5 +1,5 @@
-// owns: AudioContext lifecycle, master bus, reverb IR, lookahead scheduler, waves, bed crossfade and soundView sink
-// edit for: timing, mixing, ghost preview, win flourish, polyphony cap and suspend/resume policy
+// owns: AudioContext lifecycle, master/sfx buses, reverb IR, lookahead scheduler, waves, bed and soundView sink
+// edit for: timing, mixing, mechanism/laser sfx routing, ghost preview, win flourish and suspend/resume policy
 
 const AU_SCHED_MS = 25;
 const AU_LOOKAHEAD = 0.12;
@@ -10,12 +10,12 @@ const AU_STEAL_RAMP = 0.03;
 const AU_MAX_VOICES = 32;
 
 const auDefaultCfg = {
-	variant: 'glass', volume: 0.7, speed: 4, mode: 'move',
+	on: true, variant: 'glass', volume: 0.7, speed: 4, mode: 'move',
 	scale: 'majorPent', root: 'C', pitchSource: 'position',
 	width: 0.85, reverb: 0.45, bedLevel: 0.5, params: {}
 };
 
-let auSonifyMod = null, auPatchMod = null, auPanelMod = null;
+const auMods = {};
 let auAc = null, auGraph = null, auOn = false, auVisBound = false;
 let auIrTimer = 0, auIrSec = 0, auMoveTimer = 0, auSchedTimer = 0;
 let auWave = null, auBed = null, auBedSig = '';
@@ -23,41 +23,31 @@ let auVoices = [], auScores = null;
 let auLastLiveScore = null, auPreviewScore = null, auLastView = null;
 let auWasPreview = false, auWasLiveWon = false;
 
-function auSonify() {
-	if (!auSonifyMod && typeof module !== 'undefined' && module.exports) auSonifyMod = require('./sonify.js');
-	return auSonifyMod;
-}
-
-function auPatches() {
-	if (!auPatchMod && typeof module !== 'undefined' && module.exports) auPatchMod = require('./patches.js');
-	return auPatchMod;
-}
-
-function auPanel() {
-	if (!auPanelMod && typeof module !== 'undefined' && module.exports) auPanelMod = require('./soundpanel.js');
-	return auPanelMod;
+function auMod(file) {
+	if (typeof module === 'undefined' || !module.exports) return null;
+	return auMods[file] || (auMods[file] = require(file));
 }
 
 function auSettings() {
-	const p = auPanel();
+	const p = auMod('./soundpanel.js');
 	if (p) return p.soundPanelSettings();
 	return typeof soundPanelSettings !== 'undefined' ? soundPanelSettings() : auDefaultCfg;
 }
 
 function auEnsureScores() {
 	if (auScores) return;
-	const m = auSonify();
+	const m = auMod('./sonify.js');
 	const create = m ? m.sonifyCreateScore : sonifyCreateScore;
 	auScores = [create(), create(), create()];
 }
 
 function auBuildScore(view, cfg, slot) {
-	const m = auSonify();
+	const m = auMod('./sonify.js');
 	return (m ? m.sonifyBuild : sonifyBuild)(view, cfg, slot);
 }
 
 function auPatch(id) {
-	const m = auPatches();
+	const m = auMod('./patches.js');
 	return (m ? m.patchById : patchById)(id);
 }
 
@@ -129,6 +119,7 @@ function auCreateContext() {
 	limiter.release.setValueAtTime(0.15, t);
 	const master = ac.createGain();
 	master.gain.setValueAtTime(0, t);
+	const sfxBus = ac.createGain();
 
 	if (ac.listener) {
 		if (ac.listener.forwardZ) {
@@ -151,11 +142,12 @@ function auCreateContext() {
 	shaper.connect(wetSend);
 	wetSend.connect(convolver);
 	convolver.connect(limiter);
+	sfxBus.connect(limiter);
 	limiter.connect(master);
 	master.connect(ac.destination);
 
 	auAc = ac;
-	auGraph = { waveBus, bedBus, ghostFilter, wetSend, convolver, master };
+	auGraph = { waveBus, bedBus, sfxBus, ghostFilter, wetSend, convolver, master };
 	const cfg = auSettings();
 	auIrSec = 0.4 + 2.6 * cfg.reverb;
 	convolver.buffer = auBuildImpulse(ac, auIrSec);
@@ -173,10 +165,9 @@ function auSyncMix(cfg) {
 	const patch = auPatch(cfg.variant);
 	const vParams = (cfg.params && cfg.params[patch.id]) || {};
 	const varRev = Number.isFinite(vParams.reverb) ? vParams.reverb : 0.5;
-	const active = auOn && cfg.mode !== 'off' && !auHidden();
 	auGraph.master.gain.cancelScheduledValues(now);
-	auGraph.master.gain.setValueAtTime(active ? cfg.volume : 0, now);
-	auGraph.bedBus.gain.setValueAtTime(cfg.bedLevel, now);
+	auGraph.master.gain.setValueAtTime(auOn && !auHidden() ? cfg.volume : 0, now);
+	auGraph.bedBus.gain.setValueAtTime(cfg.mode === 'off' ? 0 : cfg.bedLevel, now);
 	auGraph.wetSend.gain.setValueAtTime(0.12 + 0.65 * cfg.reverb * (0.5 + varRev), now);
 }
 
@@ -228,8 +219,12 @@ function auStopWave() {
 	if (!auAc) return;
 	const now = auAc.currentTime;
 	w.gain.gain.cancelScheduledValues(now);
-	w.gain.gain.setValueAtTime(Math.max(0.0001, w.gain.gain.value || 1), now);
-	w.gain.gain.linearRampToValueAtTime(0.0001, now + AU_WAVE_FADE);
+	if (now - w.createdAt < 0.005) {
+		w.gain.gain.setValueAtTime(0.0001, now);
+	} else {
+		w.gain.gain.setValueAtTime(Math.max(0.0001, w.gain.gain.value || 1), now);
+		w.gain.gain.linearRampToValueAtTime(0.0001, now + AU_WAVE_FADE);
+	}
 	for (let i = 0; i < w.holds.length; i++) w.holds[i](now);
 	w.holds.length = 0;
 	setTimeout(() => { if (w.gain.disconnect) w.gain.disconnect(); }, Math.ceil((AU_WAVE_FADE + 0.03) * 1000));
@@ -319,13 +314,13 @@ function auLaunchWave(score) {
 	const patch = auPatch(cfg.variant);
 	const t0 = now + 0.012;
 	const wave = {
-		gain: wGain, score, patch, params: auResolvedParams(patch, cfg),
+		gain: wGain, score, patch, params: auResolvedParams(patch, cfg), createdAt: now,
 		speed: Math.max(1, cfg.speed), phaseDepth: 0, phaseTime: t0, cursor: 0,
 		rootMidi: score.rootMidi, scale: score.scale, state: {}, holds: [], loopTimer: 0,
 		voice: auRegisterVoice, hold(fn) { this.holds.push(fn); }
 	};
 	auWave = wave;
-	const m = auPatches();
+	const m = auMod('./patches.js');
 	(m ? m.paBreath : paBreath)(auAc, wGain, auLastView ? auLastView.emitter : 7, cfg.width, t0, auRegisterVoice);
 	auTick();
 	if (auWave === wave && wave.cursor < score.n) auSchedTimer = setInterval(auTick, AU_SCHED_MS);
@@ -372,7 +367,7 @@ function auScheduleMoveWave() {
 function auPlayWinFlourish(score) {
 	const cfg = auSettings();
 	if (!auAc || !auGraph || !auOn || cfg.mode === 'off' || auHidden() || !score) return;
-	const m = auPatches();
+	const m = auMod('./patches.js');
 	(m ? m.paWinFlourish : paWinFlourish)(auAc, auGraph.waveBus, score.bed, auAc.currentTime + 0.03, auRegisterVoice);
 }
 
@@ -411,26 +406,40 @@ function soundView(v) {
 }
 
 function soundSetOn(nextOn) {
-	const want = !!nextOn;
-	if (want === auOn) return auOn;
-	auOn = want;
-	if (!auOn) {
+	if (!nextOn) {
+		if (!auOn) return false;
+		auOn = false;
 		auHaltAndSuspend();
 		return false;
 	}
 	const cfg = auSettings();
 	const ac = auCreateContext();
-	if (!ac) return auOn;
-	if (!auHidden() && cfg.mode !== 'off') {
-		if (ac.resume) ac.resume();
-		auSyncMix(cfg);
-		const cur = auWasPreview ? auPreviewScore : auLastLiveScore;
-		if (cur) {
-			auUpdateBed(cur, cfg);
-			if (cfg.mode !== 'bed') auLaunchWave(cur);
-		}
+	if (!ac) { auOn = true; return true; }
+	const wasOn = auOn;
+	auOn = true;
+	if (auHidden()) return true;
+	const resumed = !!(ac.resume && (!wasOn || ac.state === 'suspended'));
+	if (resumed) ac.resume();
+	if (wasOn && !resumed) return true;
+	auSyncMix(cfg);
+	const cur = auWasPreview ? auPreviewScore : auLastLiveScore;
+	if (!wasOn && cur && cfg.mode !== 'off') {
+		auUpdateBed(cur, cfg);
+		if (cfg.mode !== 'bed') auLaunchWave(cur);
 	}
 	return true;
+}
+
+function soundRotate(ring, dir, mode) {
+	if (!auAc || !auGraph || !auOn || auHidden()) return;
+	const m = auMod('./soundfx.js');
+	(m ? m.fxRotate : fxRotate)(auAc, auGraph.sfxBus, ring, dir, mode, auSettings().width, auRegisterVoice);
+}
+
+function soundEmitter(fromCol, toCol) {
+	if (!auAc || !auGraph || !auOn || auHidden()) return;
+	const m = auMod('./soundfx.js');
+	(m ? m.fxLaser : fxLaser)(auAc, auGraph.sfxBus, fromCol, toCol, auSettings().width, auRegisterVoice);
 }
 
 function soundReplay() {
@@ -460,29 +469,25 @@ function soundApplySettings() {
 		}
 	}
 	auScheduleImpulseRebuild(cfg.reverb);
-	if (!auOn || cfg.mode === 'off' || auHidden()) return auHaltAndSuspend();
+	if (!auOn || auHidden()) return auHaltAndSuspend();
 	if (auAc.resume && auAc.state === 'suspended') auAc.resume();
 	auSyncMix(cfg);
+	if (cfg.mode === 'off') { auClearMove(); auStopWave(); auStopBed(true); return; }
 	const cur = auWasPreview ? auPreviewScore : auLastLiveScore;
 	if (cur) auUpdateBed(cur, cfg);
-	if (cfg.mode === 'bed') {
-		auClearMove();
-		auStopWave();
-	} else if (cfg.mode === 'loop' && !auWave && cur) {
-		auLaunchWave(cur);
-	}
+	if (cfg.mode === 'bed') { auClearMove(); auStopWave(); }
+	else if (cfg.mode === 'loop' && !auWave && cur) auLaunchWave(cur);
 }
 
 function auOnVis() {
 	if (!auAc) return;
 	const cfg = auSettings();
 	if (auHidden()) return auHaltAndSuspend();
-	if (auOn && cfg.mode !== 'off') {
-		if (auAc.resume) auAc.resume();
-		auSyncMix(cfg);
-		const cur = auWasPreview ? auPreviewScore : auLastLiveScore;
-		if (cur) auUpdateBed(cur, cfg);
-	}
+	if (!auOn) return;
+	if (auAc.resume) auAc.resume();
+	auSyncMix(cfg);
+	const cur = auWasPreview ? auPreviewScore : auLastLiveScore;
+	if (cur && cfg.mode !== 'off') auUpdateBed(cur, cfg);
 }
 
 function soundIsOn() { return auOn; }
@@ -490,5 +495,5 @@ function soundContext() { return auAc; }
 
 if (typeof module !== 'undefined') module.exports = {
 	AU_SCHED_MS, AU_LOOKAHEAD, AU_DEBOUNCE_MS, AU_MAX_VOICES,
-	soundView, soundSetOn, soundIsOn, soundReplay, soundApplySettings, soundContext
+	soundView, soundSetOn, soundIsOn, soundRotate, soundEmitter, soundReplay, soundApplySettings, soundContext
 };

@@ -87,7 +87,7 @@
 <label>ray <select id="ray" title="Thin beam core style; the soft glow stays as-is."><option value="lines">lines</option><option value="long">fast long dashes</option><option value="short" selected>short dashes</option></select></label>
 </fieldset>
 <fieldset><legend>Sound</legend>
-<button id="snd-on" aria-pressed="false" title="Enable or mute photon sonification (shortcut M).">Sound off · M</button>
+<label id="snd-on-wrap" title="Enable or mute sound (shortcut M)."><input type="checkbox" id="snd-on" checked> Sound on</label>
 <select id="snd-variant" title="Synth voice for photon interactions.">
 <option value="glass">Glass Harp</option>
 <option value="prism">Prism Pad</option>
@@ -153,6 +153,7 @@
 <script src="patchesFlow.js"></script>
 <script src="patchesSpectrum.js"></script>
 <script src="patches.js"></script>
+<script src="soundfx.js"></script>
 <script src="audio.js"></script>
 <script src="soundpanel.js"></script>
 <script src="game.js"></script>

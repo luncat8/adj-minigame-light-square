@@ -102,7 +102,13 @@ function onKey(e) {
 	const key = iKeys.indexOf(k);
 	if (key < 0) return;
 	e.preventDefault();
+	iUnlock();
 	rotate(Math.floor(key / 2), key % 2 ? 1 : -1);
+}
+
+function iUnlock() {
+	if (iSound) iSound.soundPanelUnlock();
+	else if (typeof soundPanelUnlock !== 'undefined') soundPanelUnlock();
 }
 
 function rotate(ring, dir) {
@@ -111,7 +117,10 @@ function rotate(ring, dir) {
 }
 
 function bindButton(id, fn) {
-	$(id).addEventListener('click', fn);
+	$(id).addEventListener('click', () => {
+		iUnlock();
+		fn();
+	});
 }
 
 // hover-enter or press holds the preview; each new entry or press restarts it
@@ -151,6 +160,7 @@ function ringAt(cell) {
 }
 
 function onDown(e) {
+	if (e.pointerType !== 'touch') iUnlock();
 	if (gest.pointer >= 0) return;
 	const cell = iCell(e.clientX, e.clientY);
 	if (!cell) return;
