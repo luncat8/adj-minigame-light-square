@@ -80,7 +80,13 @@ checkbox Sound on
 on check - enable sound
 if checked sound enabled also on any click, because we cant enable without click in default Chromium.
 
+### rotation and movement sound
+
 add sound of squares rotation itself and movement of laser (x position)
+
+introduce new selector of gui and movement sound and current selected automatically for "spectrum drift".
+
+for other synth modes need something completely different - more prolonged, like rolling rusty bearings with some tonal accents each slot changed
 
 ### sound generator and settings panel to it
 
