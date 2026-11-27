@@ -72,6 +72,21 @@ function buildCellShade() {
 
 const CELL_SHADE = buildCellShade();
 
+// quarter turns carry each strip of side-1 slots onto the next side; tints follow tile identity via glyphs
+function buildCellSide() {
+	const out = new Uint8Array(GLYPH_CENTER_ALT + 1);
+	for (let r = 0; r < 3; r++) {
+		const cells = RING_CELLS[r];
+		const seg = RING_SIDE[r] - 1;
+		for (let s = 0; s < cells.length; s++) out[cells[s]] = (s / seg) | 0;
+	}
+	out[CENTER_CELL] = 4;
+	out[GLYPH_CENTER_ALT] = 4;
+	return out;
+}
+
+const CELL_SIDE = buildCellSide();
+
 // rotation only; diagonal flips belong to shiftRing
 function permuteRing(arr, ring, step) {
 	const cells = RING_CELLS[ring];
@@ -170,6 +185,7 @@ if (typeof module !== 'undefined') module.exports = {
 	SHADE_STEPS,
 	CELL_GLYPHS,
 	CELL_SHADE,
+	CELL_SIDE,
 	MODE_QUARTER,
 	MODE_SINGLE,
 	TILE_DIAG,
